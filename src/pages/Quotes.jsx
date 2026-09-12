@@ -82,11 +82,13 @@ export default function Quotes() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold" style={{ color: C.ink }}>{q.name}</p>
                     <Badge tone={STATUS_TONE[q.status]}>{q.status}</Badge>
+                    {q.requestType && <Badge>{q.requestType}</Badge>}
                   </div>
                   <p className="text-sm mt-1 flex items-center gap-1.5" style={{ color: "#6B6960" }}>
                     <Phone size={12} /> {q.phone} · prefers {q.preferredContact}
                   </p>
-                  <p className="text-sm mt-2" style={{ color: C.ink }}><strong>{q.product}</strong>{q.quantity ? ` — ${q.quantity}` : ""}</p>
+                  {q.product && <p className="text-sm mt-2" style={{ color: C.ink }}><strong>{q.product}</strong>{q.quantity ? ` — ${q.quantity}` : ""}</p>}
+                  {q.location && <p className="text-sm mt-1" style={{ color: "#6B6960" }}>📍 {q.location}</p>}
                   {q.notes && <p className="text-sm mt-1" style={{ color: "#6B6960" }}>{q.notes}</p>}
                   <p className="text-xs mt-2" style={{ color: "#8A877D" }}>{new Date(q.createdAt).toLocaleString()}</p>
                 </div>

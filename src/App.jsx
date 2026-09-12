@@ -7,6 +7,7 @@ import Overview from "./pages/Overview";
 import Products from "./pages/Products";
 import Quotes from "./pages/Quotes";
 import Projects from "./pages/Projects";
+import SettingsPage from "./pages/Settings";
 import Admins from "./pages/Admins";
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
           <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
           <Route path="/quotes" element={<ProtectedRoute><Quotes /></ProtectedRoute>} />
           <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
           <Route path="/admins" element={<ProtectedRoute><Admins /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>

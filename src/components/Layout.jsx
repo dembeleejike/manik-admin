@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { LayoutGrid, Package, MessageSquare, Image, Users, LogOut, Menu, X } from "lucide-react";
+import { LayoutGrid, Package, MessageSquare, Image, Users, Settings as SettingsIcon, LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "../AuthContext";
 import { C } from "../tokens";
 
@@ -9,6 +9,7 @@ const NAV = [
   { to: "/products", label: "Products", icon: Package },
   { to: "/quotes", label: "Quote requests", icon: MessageSquare },
   { to: "/projects", label: "Projects", icon: Image },
+  { to: "/settings", label: "Business Settings", icon: SettingsIcon },
   { to: "/admins", label: "Admins", icon: Users },
 ];
 

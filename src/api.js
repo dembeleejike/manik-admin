@@ -60,6 +60,11 @@ export const api = {
     request("/api/categories", { method: "POST", body: JSON.stringify({ name }) }),
   deleteCategory: (id) => request(`/api/categories/${id}`, { method: "DELETE" }),
 
+  // settings
+  getSettings: () => request("/api/settings"),
+  updateSettings: (payload) =>
+    request("/api/settings", { method: "PUT", body: JSON.stringify(payload) }),
+
   // quotes
   listQuotes: () => request("/api/quotes"),
   updateQuoteStatus: (id, status) =>
