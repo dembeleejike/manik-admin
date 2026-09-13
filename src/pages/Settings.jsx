@@ -159,7 +159,13 @@ export default function Settings() {
           </p>
         </Card>
 
-        <Button type="submit" disabled={saving} icon={Save}>{saving ? "Saving..." : "Save changes"}</Button>
+        <div className="flex items-center gap-3">
+          <Button type="submit" disabled={saving} icon={Save}>
+            {saving ? "Saving..." : saved ? "Saved ✓" : "Save changes"}
+          </Button>
+          {saved && <span className="text-sm" style={{ color: C.green }}>Your website now shows this.</span>}
+          {error && <span className="text-sm" style={{ color: C.red }}>{error}</span>}
+        </div>
       </form>
     </Layout>
   );
