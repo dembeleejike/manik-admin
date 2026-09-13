@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { LayoutGrid, Package, MessageSquare, Image, Users, Settings as SettingsIcon, LogOut, Menu, X } from "lucide-react";
+import { LayoutGrid, Package, MessageSquare, Image, Users, Settings as SettingsIcon, ShoppingCart, TrendingUp, Receipt, BarChart3, UserCircle, LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "../AuthContext";
 import { C } from "../tokens";
 
@@ -8,6 +8,11 @@ const NAV = [
   { to: "/", label: "Overview", icon: LayoutGrid, end: true },
   { to: "/products", label: "Products", icon: Package },
   { to: "/quotes", label: "Quote requests", icon: MessageSquare },
+  { to: "/sales", label: "Sales", icon: ShoppingCart },
+  { to: "/purchases", label: "Purchases", icon: TrendingUp },
+  { to: "/expenses", label: "Expenses", icon: Receipt },
+  { to: "/customers", label: "Customers", icon: UserCircle },
+  { to: "/reports", label: "Reports", icon: BarChart3 },
   { to: "/projects", label: "Projects", icon: Image },
   { to: "/settings", label: "Business Settings", icon: SettingsIcon },
   { to: "/admins", label: "Admins", icon: Users },

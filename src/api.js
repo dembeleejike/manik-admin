@@ -48,6 +48,30 @@ export const api = {
     request("/api/auth/admins", { method: "POST", body: JSON.stringify(payload) }),
   deleteAdmin: (id) => request(`/api/auth/admins/${id}`, { method: "DELETE" }),
 
+  // sales
+  listSales: () => request("/api/sales"),
+  createSale: (payload) => request("/api/sales", { method: "POST", body: JSON.stringify(payload) }),
+  deleteSale: (id) => request(`/api/sales/${id}`, { method: "DELETE" }),
+
+  // purchases
+  listPurchases: () => request("/api/purchases"),
+  createPurchase: (payload) => request("/api/purchases", { method: "POST", body: JSON.stringify(payload) }),
+  deletePurchase: (id) => request(`/api/purchases/${id}`, { method: "DELETE" }),
+
+  // expenses
+  listExpenses: () => request("/api/expenses"),
+  createExpense: (payload) => request("/api/expenses", { method: "POST", body: JSON.stringify(payload) }),
+  deleteExpense: (id) => request(`/api/expenses/${id}`, { method: "DELETE" }),
+
+  // customers
+  listCustomers: () => request("/api/customers"),
+  getCustomer: (id) => request(`/api/customers/${id}`),
+  updateCustomer: (id, payload) => request(`/api/customers/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
+
+  // reports
+  getReportSummary: (period) => request(`/api/reports/summary?period=${period}`),
+  getYearlyReport: (year) => request(`/api/reports/yearly?year=${year}`),
+
   // products
   listProducts: () => request("/api/products"),
   createProduct: (formData) => request("/api/products", { method: "POST", body: formData }),

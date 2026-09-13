@@ -92,3 +92,11 @@ export function ErrorBanner({ message }) {
     </div>
   );
 }
+
+export function ExplainerBox({ children }) {
+  return (
+    <div className="text-sm px-4 py-3 mb-6 leading-relaxed" style={{ background: "#EFF6FF", color: "#1E3A5F", border: "1px solid #C7DAF0" }}>
+      {children}
+    </div>
+  );
+}

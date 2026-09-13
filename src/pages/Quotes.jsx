@@ -1,23 +1,26 @@
 import React, { useEffect, useState } from "react";
-import { Phone, Trash2 } from "lucide-react";
+import { Phone, Trash2, ShoppingCart, X } from "lucide-react";
 import { api } from "../api";
 import { C } from "../tokens";
 import Layout from "../components/Layout";
-import { PageHeader, Card, Badge, Loading, EmptyState, ErrorBanner } from "../components/ui";
+import { PageHeader, Button, Card, Badge, Field, inputStyle, Loading, EmptyState, ErrorBanner, ExplainerBox } from "../components/ui";
 
 const STATUS_TONE = { New: "red", Contacted: "default", Closed: "green" };
 
 export default function Quotes() {
   const [quotes, setQuotes] = useState([]);
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("All");
+  const [converting, setConverting] = useState(null);
 
   async function load() {
     setLoading(true);
     try {
-      const data = await api.listQuotes();
-      setQuotes(data);
+      const [q, p] = await Promise.all([api.listQuotes(), api.listProducts()]);
+      setQuotes(q);
+      setProducts(p);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -50,7 +53,10 @@ export default function Quotes() {
 
   return (
     <Layout>
-      <PageHeader title="Quote requests" />
+      <PageHeader title="Quote requests — Customers asking about prices" />
+      <ExplainerBox>
+        When someone fills the "Request a Quote" form on your website, it appears here. Call or WhatsApp them back, then mark it Contacted. If they buy, tap "Convert to sale" so it's properly recorded.
+      </ExplainerBox>
       <ErrorBanner message={error} />
 
       <div className="flex gap-2 mb-5">
@@ -103,6 +109,11 @@ export default function Quotes() {
                     <option>Contacted</option>
                     <option>Closed</option>
                   </select>
+                  {q.status !== "Closed" && (
+                    <button onClick={() => setConverting(q)} className="text-xs flex items-center gap-1" style={{ color: C.blueprint }}>
+                      <ShoppingCart size={12} /> Convert to sale
+                    </button>
+                  )}
                   <button onClick={() => handleDelete(q._id)} className="text-xs flex items-center gap-1" style={{ color: C.red }}>
                     <Trash2 size={12} /> Delete
                   </button>
@@ -112,6 +123,91 @@ export default function Quotes() {
           ))}
         </div>
       )}
+
+      {converting && (
+        <ConvertModal
+          quote={converting}
+          products={products}
+          onClose={() => setConverting(null)}
+          onSaved={() => { setConverting(null); load(); }}
+        />
+      )}
     </Layout>
+  );
+}
+
+function ConvertModal({ quote, products, onClose, onSaved }) {
+  const matchingProduct = products.find(p => p.name === quote.product);
+  const [productId, setProductId] = useState(matchingProduct?._id || "");
+  const [quantity, setQuantity] = useState(quote.quantity?.match(/\d+/)?.[0] || "1");
+  const [unitPrice, setUnitPrice] = useState(matchingProduct?.sellingPrice ? String(matchingProduct.sellingPrice) : "");
+  const [paymentStatus, setPaymentStatus] = useState("Paid");
+  const [paymentMethod, setPaymentMethod] = useState("Cash");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!productId || !quantity || !unitPrice) {
+      setError("Product, quantity and unit price are required.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await api.createSale({
+        product: productId, quantity: Number(quantity), unitPrice: Number(unitPrice),
+        customerName: quote.name, customerPhone: quote.phone,
+        paymentStatus, paymentMethod, fromQuote: quote._id,
+      });
+      onSaved();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "#00000088" }} onClick={onClose}>
+      <div className="max-w-md w-full max-h-[85vh] overflow-y-auto p-6" style={{ background: C.cream }} onClick={e => e.stopPropagation()}>
+        <div className="flex justify-between items-center mb-5">
+          <h2 className="font-bold text-lg" style={{ color: C.ink }}>Convert to sale</h2>
+          <button onClick={onClose}><X size={18} color={C.ink} /></button>
+        </div>
+        <p className="text-sm mb-5" style={{ color: "#6B6960" }}>
+          Converting {quote.name}'s request. This records a real sale, reduces stock, and marks the quote Closed.
+        </p>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Field label="Product">
+            <select value={productId} onChange={e => setProductId(e.target.value)} style={inputStyle}>
+              <option value="">Select a product</option>
+              {products.map(p => <option key={p._id} value={p._id}>{p.name} ({p.quantity} in stock)</option>)}
+            </select>
+          </Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Quantity"><input type="number" min="1" value={quantity} onChange={e => setQuantity(e.target.value)} style={inputStyle} /></Field>
+            <Field label="Unit price (₦)"><input type="number" min="0" value={unitPrice} onChange={e => setUnitPrice(e.target.value)} style={inputStyle} /></Field>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Payment status">
+              <select value={paymentStatus} onChange={e => setPaymentStatus(e.target.value)} style={inputStyle}>
+                <option>Paid</option><option>Partial</option><option>Unpaid</option>
+              </select>
+            </Field>
+            <Field label="Payment method">
+              <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} style={inputStyle}>
+                <option>Cash</option><option>Bank Transfer</option><option>POS</option><option>Other</option>
+              </select>
+            </Field>
+          </div>
+          {error && <p className="text-sm" style={{ color: C.red }}>{error}</p>}
+          <div className="flex gap-3 pt-2">
+            <Button type="submit" disabled={saving}>{saving ? "Saving..." : "Confirm sale"}</Button>
+            <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }

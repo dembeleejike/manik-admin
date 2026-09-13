@@ -3,7 +3,7 @@ import { Plus, Pencil, Trash2, X, Tag } from "lucide-react";
 import { api } from "../api";
 import { C } from "../tokens";
 import Layout from "../components/Layout";
-import { PageHeader, Button, Card, Badge, Field, inputStyle, Loading, EmptyState, ErrorBanner } from "../components/ui";
+import { PageHeader, Button, Card, Badge, Field, inputStyle, Loading, EmptyState, ErrorBanner, ExplainerBox } from "../components/ui";
 
 const STATUS_OPTIONS = ["In stock", "Low stock", "Made to order", "Out of stock"];
 
@@ -43,7 +43,7 @@ export default function Products() {
   return (
     <Layout>
       <PageHeader
-        title="Products"
+        title="Products — What you sell"
         action={
           <div className="flex gap-2">
             <Button variant="ghost" icon={Tag} onClick={() => setShowCategories(true)}>Categories</Button>
@@ -51,6 +51,9 @@ export default function Products() {
           </div>
         }
       />
+      <ExplainerBox>
+        This is your full catalogue — everything customers can see and ask about on the website. Add a new product here once, then use Sales and Purchases pages to track how many you have left.
+      </ExplainerBox>
       <ErrorBanner message={error} />
 
       {loading ? (
@@ -71,7 +74,7 @@ export default function Products() {
                   <div className="min-w-0">
                     <p className="text-xs" style={{ color: C.blueprint }}>{p.ref}</p>
                     <p className="font-semibold truncate" style={{ color: C.ink }}>{p.name}</p>
-                    <p className="text-xs mt-0.5" style={{ color: "#6B6960" }}>{p.category?.name || "Uncategorized"}</p>
+                    <p className="text-xs mt-0.5" style={{ color: "#6B6960" }}>{p.category?.name || "Uncategorized"} · {p.quantity ?? 0} in stock</p>
                   </div>
                   <Badge tone={p.status === "In stock" ? "green" : p.status === "Out of stock" ? "red" : "default"}>
                     {p.status}
@@ -177,6 +180,9 @@ function ProductModal({ product, categories, onClose, onSaved }) {
   const [category, setCategory] = useState(product.category?._id || categories[0]?._id || "");
   const [description, setDescription] = useState(product.description || "");
   const [status, setStatus] = useState(product.status || "In stock");
+  const [quantity, setQuantity] = useState(product.quantity ?? 0);
+  const [costPrice, setCostPrice] = useState(product.costPrice ?? "");
+  const [sellingPrice, setSellingPrice] = useState(product.sellingPrice ?? "");
   const [files, setFiles] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -196,6 +202,9 @@ function ProductModal({ product, categories, onClose, onSaved }) {
       formData.append("category", category);
       formData.append("description", description);
       formData.append("status", status);
+      formData.append("quantity", quantity);
+      formData.append("costPrice", costPrice || 0);
+      formData.append("sellingPrice", sellingPrice || 0);
       files.forEach((f) => formData.append("images", f));
 
       if (isNew) {
@@ -231,6 +240,14 @@ function ProductModal({ product, categories, onClose, onSaved }) {
           <Field label="Description">
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} style={inputStyle} />
           </Field>
+          <div className="grid grid-cols-3 gap-3">
+            <Field label="Stock quantity"><input type="number" min="0" value={quantity} onChange={(e) => setQuantity(e.target.value)} style={inputStyle} /></Field>
+            <Field label="Cost price (₦)"><input type="number" min="0" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} style={inputStyle} /></Field>
+            <Field label="Selling price (₦)"><input type="number" min="0" value={sellingPrice} onChange={(e) => setSellingPrice(e.target.value)} style={inputStyle} /></Field>
+          </div>
+          <p className="text-xs -mt-2" style={{ color: "#8A877D" }}>
+            Quantity updates automatically from Purchases and Sales going forward — set it here only for the initial stock count.
+          </p>
           <Field label="Status">
             <select value={status} onChange={(e) => setStatus(e.target.value)} style={inputStyle}>
               {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}

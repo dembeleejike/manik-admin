@@ -3,7 +3,7 @@ import { Package, MessageSquare, Image, AlertCircle } from "lucide-react";
 import { api } from "../api";
 import { C } from "../tokens";
 import Layout from "../components/Layout";
-import { Card, Loading, ErrorBanner } from "../components/ui";
+import { Card, Loading, ErrorBanner, ExplainerBox } from "../components/ui";
 
 export default function Overview() {
   const [stats, setStats] = useState(null);
@@ -37,7 +37,9 @@ export default function Overview() {
   return (
     <Layout>
       <h1 className="text-xl font-bold mb-1" style={{ color: C.ink }}>Overview</h1>
-      <p className="text-sm mb-6" style={{ color: "#6B6960" }}>Quick snapshot of what's happening on the site.</p>
+      <ExplainerBox>
+        This is your home page. It shows a quick picture of your business — how many products you have, how many customers have asked for quotes, and how many photos of your finished work are on the site. Use the menu on the left to go to each section.
+      </ExplainerBox>
 
       <ErrorBanner message={error} />
       {loading ? (
@@ -46,7 +48,7 @@ export default function Overview() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard icon={Package} label="Products" value={stats.products} />
           <StatCard icon={MessageSquare} label="Quote requests" value={stats.quotes} highlight={stats.newQuotes > 0} />
-          <StatCard icon={AlertCircle} label="New / unread" value={stats.newQuotes} accent={stats.newQuotes > 0} />
+          <StatCard icon={AlertCircle} label="Customers waiting to hear back" value={stats.newQuotes} accent={stats.newQuotes > 0} />
           <StatCard icon={Image} label="Projects" value={stats.projects} />
         </div>
       )}
