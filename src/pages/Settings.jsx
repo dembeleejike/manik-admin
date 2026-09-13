@@ -17,20 +17,28 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  // Separate from `error` (which is also used for save failures) so a failed
+  // *load* can block the form entirely — saving a form that never actually
+  // loaded your real data would silently overwrite it with blanks.
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
-    async function load() {
-      try {
-        const data = await api.getSettings();
-        setForm({ ...EMPTY, ...data, stats: { ...EMPTY.stats, ...(data.stats || {}) }, locations: data.locations?.length ? data.locations : [] });
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
     load();
   }, []);
+
+  async function load() {
+    setLoading(true);
+    setLoadFailed(false);
+    try {
+      const data = await api.getSettings();
+      setForm({ ...EMPTY, ...data, stats: { ...EMPTY.stats, ...(data.stats || {}) }, locations: data.locations?.length ? data.locations : [] });
+    } catch (err) {
+      setError(err.message);
+      setLoadFailed(true);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const update = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const updateStat = (k, v) => setForm(f => ({ ...f, stats: { ...f.stats, [k]: v } }));
@@ -63,6 +71,16 @@ export default function Settings() {
 
   if (loading) {
     return <Layout><PageHeader title="Business Settings" /><Loading /></Layout>;
+  }
+
+  if (loadFailed) {
+    return (
+      <Layout>
+        <PageHeader title="Business Settings — Your business info" />
+        <ErrorBanner message={`Couldn't load your current settings (${error}). Saving now would overwrite your real business info with blanks, so the form is hidden until this loads successfully.`} />
+        <Button type="button" onClick={load}>Try again</Button>
+      </Layout>
+    );
   }
 
   return (
