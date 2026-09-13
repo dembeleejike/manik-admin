@@ -100,7 +100,6 @@ export default function Settings() {
         Everything here shows up on your public website automatically — the footer, contact page, and homepage numbers. Fill this in once with your real details, and the website updates itself. No need to touch any code.
       </ExplainerBox>
       <ErrorBanner message={error} />
-      {saved && <div className="text-sm px-4 py-3 mb-4" style={{ background: C.greenBg, color: C.green }}>Saved — your website now shows this.</div>}
 
       <form onSubmit={handleSave} className="space-y-8">
         <Card>
@@ -202,7 +201,11 @@ export default function Settings() {
           </div>
         </Card>
 
-        <Button type="submit" disabled={saving} icon={Save}>{saving ? "Saving..." : "Save changes"}</Button>
+        <div>
+          <Button type="submit" disabled={saving} icon={Save}>{saving ? "Saving..." : "Save changes"}</Button>
+          {saved && <p className="text-sm mt-3 font-medium" style={{ color: C.green }}>✓ Saved — your website now shows this.</p>}
+          {error && <p className="text-sm mt-3" style={{ color: C.red }}>Couldn't save: {error}</p>}
+        </div>
       </form>
     </Layout>
   );
