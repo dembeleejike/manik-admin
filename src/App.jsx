@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import OwnerRoute from "./components/OwnerRoute";
 import Login from "./pages/Login";
 import Overview from "./pages/Overview";
 import Products from "./pages/Products";
@@ -26,12 +27,12 @@ export default function App() {
           <Route path="/quotes" element={<ProtectedRoute><Quotes /></ProtectedRoute>} />
           <Route path="/sales" element={<ProtectedRoute><Sales /></ProtectedRoute>} />
           <Route path="/purchases" element={<ProtectedRoute><Purchases /></ProtectedRoute>} />
-          <Route path="/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
-          <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
-          <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+          <Route path="/expenses" element={<ProtectedRoute><OwnerRoute><Expenses /></OwnerRoute></ProtectedRoute>} />
+          <Route path="/customers" element={<ProtectedRoute><OwnerRoute><Customers /></OwnerRoute></ProtectedRoute>} />
+          <Route path="/reports" element={<ProtectedRoute><OwnerRoute><Reports /></OwnerRoute></ProtectedRoute>} />
           <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-          <Route path="/admins" element={<ProtectedRoute><Admins /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><OwnerRoute><SettingsPage /></OwnerRoute></ProtectedRoute>} />
+          <Route path="/admins" element={<ProtectedRoute><OwnerRoute><Admins /></OwnerRoute></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

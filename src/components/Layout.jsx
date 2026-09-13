@@ -10,18 +10,20 @@ const NAV = [
   { to: "/quotes", label: "Quote requests", icon: MessageSquare },
   { to: "/sales", label: "Sales", icon: ShoppingCart },
   { to: "/purchases", label: "Purchases", icon: TrendingUp },
-  { to: "/expenses", label: "Expenses", icon: Receipt },
-  { to: "/customers", label: "Customers", icon: UserCircle },
-  { to: "/reports", label: "Reports", icon: BarChart3 },
+  { to: "/expenses", label: "Expenses", icon: Receipt, ownerOnly: true },
+  { to: "/customers", label: "Customers", icon: UserCircle, ownerOnly: true },
+  { to: "/reports", label: "Reports", icon: BarChart3, ownerOnly: true },
   { to: "/projects", label: "Projects", icon: Image },
-  { to: "/settings", label: "Business Settings", icon: SettingsIcon },
-  { to: "/admins", label: "Admins", icon: Users },
+  { to: "/settings", label: "Business Settings", icon: SettingsIcon, ownerOnly: true },
+  { to: "/admins", label: "Admins", icon: Users, ownerOnly: true },
 ];
 
 export default function Layout({ children }) {
   const { admin, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const isOwner = admin?.role === "owner";
+  const visibleNav = NAV.filter(item => !item.ownerOnly || isOwner);
 
   function handleLogout() {
     logout();
@@ -30,7 +32,7 @@ export default function Layout({ children }) {
 
   const navItems = (
     <nav className="flex-1 py-4">
-      {NAV.map(({ to, label, icon: Icon, end }) => (
+      {visibleNav.map(({ to, label, icon: Icon, end }) => (
         <NavLink
           key={to}
           to={to}
@@ -61,7 +63,8 @@ export default function Layout({ children }) {
         </div>
         {navItems}
         <div className="px-5 py-4" style={{ borderTop: `1px solid ${C.steelLine}` }}>
-          <p className="text-xs mb-2 truncate" style={{ color: "#8A8F94" }}>{admin?.email}</p>
+          <p className="text-xs mb-1 truncate" style={{ color: "#8A8F94" }}>{admin?.email}</p>
+          <p className="text-xs mb-2 uppercase tracking-wide" style={{ color: admin?.role === "owner" ? "#E2591F" : "#8A8F94" }}>{admin?.role}</p>
           <button onClick={handleLogout} className="flex items-center gap-2 text-xs" style={{ color: "#B8BCC0" }}>
             <LogOut size={13} /> Log out
           </button>
@@ -82,7 +85,8 @@ export default function Layout({ children }) {
         <div className="md:hidden fixed inset-0 z-30 pt-14" style={{ background: C.steel }}>
           {navItems}
           <div className="px-5 py-4" style={{ borderTop: `1px solid ${C.steelLine}` }}>
-            <p className="text-xs mb-2 truncate" style={{ color: "#8A8F94" }}>{admin?.email}</p>
+            <p className="text-xs mb-1 truncate" style={{ color: "#8A8F94" }}>{admin?.email}</p>
+          <p className="text-xs mb-2 uppercase tracking-wide" style={{ color: admin?.role === "owner" ? "#E2591F" : "#8A8F94" }}>{admin?.role}</p>
             <button onClick={handleLogout} className="flex items-center gap-2 text-xs" style={{ color: "#B8BCC0" }}>
               <LogOut size={13} /> Log out
             </button>

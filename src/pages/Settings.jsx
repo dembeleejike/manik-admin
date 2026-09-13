@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Save, Plus, Trash2 } from "lucide-react";
+import { Save, Plus, Trash2, Download } from "lucide-react";
 import { api } from "../api";
 import { C } from "../tokens";
 import Layout from "../components/Layout";
@@ -7,7 +7,7 @@ import { PageHeader, Button, Card, Field, inputStyle, Loading, ErrorBanner, Expl
 
 const EMPTY = {
   businessName: "", tagline: "", phone: "", phone2: "", whatsapp: "", email: "",
-  locations: [], hours: "", hoursSunday: "", aboutText: "", mapEmbedUrl: "",
+  locations: [], hours: "", hoursSunday: "", aboutText: "", mapEmbedUrl: "", heroImageUrl: "",
   stats: { years: "", projects: "", quality: "", support: "" },
 };
 
@@ -17,28 +17,48 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
-  // Separate from `error` (which is also used for save failures) so a failed
-  // *load* can block the form entirely — saving a form that never actually
-  // loaded your real data would silently overwrite it with blanks.
-  const [loadFailed, setLoadFailed] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
+  const [heroFile, setHeroFile] = useState(null);
+  const [heroUploading, setHeroUploading] = useState(false);
+  const [heroError, setHeroError] = useState("");
 
-  useEffect(() => {
-    load();
-  }, []);
-
-  async function load() {
-    setLoading(true);
-    setLoadFailed(false);
+  async function handleHeroUpload() {
+    if (!heroFile) return;
+    setHeroUploading(true);
+    setHeroError("");
     try {
-      const data = await api.getSettings();
-      setForm({ ...EMPTY, ...data, stats: { ...EMPTY.stats, ...(data.stats || {}) }, locations: data.locations?.length ? data.locations : [] });
+      const updated = await api.uploadHeroImage(heroFile);
+      setForm(f => ({ ...f, heroImageUrl: updated.heroImageUrl }));
+      setHeroFile(null);
     } catch (err) {
-      setError(err.message);
-      setLoadFailed(true);
+      setHeroError(err.message);
     } finally {
-      setLoading(false);
+      setHeroUploading(false);
     }
   }
+
+  async function handleDownload(path, filename) {
+    setDownloadError("");
+    try {
+      await api.downloadFile(path, filename);
+    } catch (err) {
+      setDownloadError(err.message);
+    }
+  }
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await api.getSettings();
+        setForm({ ...EMPTY, ...data, stats: { ...EMPTY.stats, ...(data.stats || {}) }, locations: data.locations?.length ? data.locations : [] });
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
 
   const update = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const updateStat = (k, v) => setForm(f => ({ ...f, stats: { ...f.stats, [k]: v } }));
@@ -71,16 +91,6 @@ export default function Settings() {
 
   if (loading) {
     return <Layout><PageHeader title="Business Settings" /><Loading /></Layout>;
-  }
-
-  if (loadFailed) {
-    return (
-      <Layout>
-        <PageHeader title="Business Settings — Your business info" />
-        <ErrorBanner message={`Couldn't load your current settings (${error}). Saving now would overwrite your real business info with blanks, so the form is hidden until this loads successfully.`} />
-        <Button type="button" onClick={load}>Try again</Button>
-      </Layout>
-    );
   }
 
   return (
@@ -150,6 +160,23 @@ export default function Settings() {
         </Card>
 
         <Card>
+          <p className="text-xs uppercase tracking-widest mb-1" style={{ color: "#6B6960" }}>Homepage photo</p>
+          <p className="text-xs mb-4" style={{ color: "#8A877D" }}>
+            This is the big photo at the top of your website. A real photo of your shop, products, or finished work looks much better than the "Photo pending" placeholder.
+          </p>
+          {form.heroImageUrl && (
+            <img src={form.heroImageUrl} alt="Current homepage photo" className="w-full max-w-sm h-40 object-cover mb-4" style={{ border: "1px solid #C9C5BA" }} />
+          )}
+          <input type="file" accept="image/*" onChange={e => setHeroFile(e.target.files[0])} className="text-sm mb-3" />
+          {heroError && <p className="text-sm mb-2" style={{ color: C.red }}>{heroError}</p>}
+          <div>
+            <Button type="button" variant="ghost" disabled={!heroFile || heroUploading} onClick={handleHeroUpload}>
+              {heroUploading ? "Uploading..." : "Upload photo"}
+            </Button>
+          </div>
+        </Card>
+
+        <Card>
           <p className="text-xs uppercase tracking-widest mb-4" style={{ color: "#6B6960" }}>Map</p>
           <Field label="Google Maps embed link (optional)">
             <input value={form.mapEmbedUrl} onChange={e => update("mapEmbedUrl", e.target.value)} placeholder="https://www.google.com/maps/embed?..." style={inputStyle} />
@@ -159,13 +186,23 @@ export default function Settings() {
           </p>
         </Card>
 
-        <div className="flex items-center gap-3">
-          <Button type="submit" disabled={saving} icon={Save}>
-            {saving ? "Saving..." : saved ? "Saved ✓" : "Save changes"}
-          </Button>
-          {saved && <span className="text-sm" style={{ color: C.green }}>Your website now shows this.</span>}
-          {error && <span className="text-sm" style={{ color: C.red }}>{error}</span>}
-        </div>
+        <Card>
+          <p className="text-xs uppercase tracking-widest mb-1" style={{ color: "#6B6960" }}>Backup your data</p>
+          <p className="text-xs mb-4" style={{ color: "#8A877D" }}>
+            Download a copy of everything — good practice to do this every so often, in case anything ever goes wrong.
+          </p>
+          {downloadError && <p className="text-sm mb-3" style={{ color: C.red }}>{downloadError}</p>}
+          <div className="flex flex-wrap gap-3">
+            <Button type="button" variant="ghost" icon={Download} onClick={() => handleDownload("/api/export/backup", `manik-backup-${new Date().toISOString().slice(0, 10)}.json`)}>
+              Download full backup
+            </Button>
+            <Button type="button" variant="ghost" icon={Download} onClick={() => handleDownload("/api/export/sales.csv", `manik-sales-${new Date().toISOString().slice(0, 10)}.csv`)}>
+              Download sales as spreadsheet
+            </Button>
+          </div>
+        </Card>
+
+        <Button type="submit" disabled={saving} icon={Save}>{saving ? "Saving..." : "Save changes"}</Button>
       </form>
     </Layout>
   );

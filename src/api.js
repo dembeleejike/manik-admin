@@ -24,13 +24,9 @@ async function request(path, options = {}) {
 
   // Session expired or invalid — clear it and send back to login instead
   // of showing a confusing generic error on whatever page they were on.
-  // The message is stashed in sessionStorage (survives the full-page
-  // navigation below) so the login page can explain what happened,
-  // instead of the user landing there with no idea why.
   if (res.status === 401 && token) {
     localStorage.removeItem("manik_admin_token");
     localStorage.removeItem("manik_admin_info");
-    sessionStorage.setItem("manik_admin_session_msg", "Your session expired — please log in again.");
     window.location.href = "/login";
     return new Promise(() => {}); // stop here — the redirect is already happening
   }
@@ -76,6 +72,29 @@ export const api = {
   getReportSummary: (period) => request(`/api/reports/summary?period=${period}`),
   getYearlyReport: (year) => request(`/api/reports/yearly?year=${year}`),
 
+  // export — these are files, not JSON, and need the auth token attached,
+  // so a plain link won't work. This fetches with the token, then triggers
+  // a normal browser download of the result.
+  downloadFile: async (path, filename) => {
+    const token = getToken();
+    const res = await fetch(`${API_URL}${path}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Download failed");
+    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
   // products
   listProducts: () => request("/api/products"),
   createProduct: (formData) => request("/api/products", { method: "POST", body: formData }),
@@ -92,6 +111,11 @@ export const api = {
   getSettings: () => request("/api/settings"),
   updateSettings: (payload) =>
     request("/api/settings", { method: "PUT", body: JSON.stringify(payload) }),
+  uploadHeroImage: (file) => {
+    const formData = new FormData();
+    formData.append("image", file);
+    return request("/api/settings/hero-image", { method: "POST", body: formData });
+  },
 
   // quotes
   listQuotes: () => request("/api/quotes"),
