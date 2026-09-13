@@ -24,9 +24,13 @@ async function request(path, options = {}) {
 
   // Session expired or invalid — clear it and send back to login instead
   // of showing a confusing generic error on whatever page they were on.
+  // The message is stashed in sessionStorage (survives the full-page
+  // navigation below) so the login page can explain what happened,
+  // instead of the user landing there with no idea why.
   if (res.status === 401 && token) {
     localStorage.removeItem("manik_admin_token");
     localStorage.removeItem("manik_admin_info");
+    sessionStorage.setItem("manik_admin_session_msg", "Your session expired — please log in again.");
     window.location.href = "/login";
     return new Promise(() => {}); // stop here — the redirect is already happening
   }

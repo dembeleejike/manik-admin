@@ -4,10 +4,18 @@ import { Lock } from "lucide-react";
 import { useAuth } from "../AuthContext";
 import { C } from "../tokens";
 
+// Read once, synchronously, so it's ready before the first render — and
+// remove it immediately so it doesn't resurface on a later, unrelated visit.
+function takeSessionMessage() {
+  const msg = sessionStorage.getItem("manik_admin_session_msg");
+  if (msg) sessionStorage.removeItem("manik_admin_session_msg");
+  return msg || "";
+}
+
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(takeSessionMessage);
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
