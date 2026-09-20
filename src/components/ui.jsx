@@ -76,6 +76,45 @@ export function EmptyState({ message }) {
   );
 }
 
+export function SearchInput({ value, onChange, placeholder }) {
+  return (
+    <input
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder || "Search..."}
+      className="text-sm px-3 py-2"
+      style={{ border: "1px solid #C9C5BA", background: "white", minWidth: 220 }}
+    />
+  );
+}
+
+const PERIODS = ["All", "This Week", "This Month", "This Year"];
+
+export function PeriodFilter({ value, onChange }) {
+  return (
+    <div className="flex gap-2 flex-wrap">
+      {PERIODS.map(p => (
+        <button key={p} onClick={() => onChange(p)} className="text-xs uppercase tracking-wide px-3 py-1.5"
+          style={{ border: `1px solid ${value === p ? C.safety : "#C9C5BA"}`, color: value === p ? C.safety : "#6B6960" }}>
+          {p}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Filters a list of items down to a period, based on a date field on each item.
+export function filterByPeriod(items, period, dateField = "date") {
+  if (period === "All") return items;
+  const now = new Date();
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  if (period === "This Week") start.setDate(start.getDate() - start.getDay());
+  else if (period === "This Month") start.setDate(1);
+  else if (period === "This Year") start.setMonth(0, 1);
+  return items.filter(item => new Date(item[dateField]) >= start);
+}
+
 export function Loading() {
   return (
     <div className="text-center py-16 text-sm" style={{ color: "#8A877D" }}>

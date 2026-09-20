@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { Plus, Trash2, X } from "lucide-react";
+import { Plus, Trash2, X, Printer } from "lucide-react";
 import { api } from "../api";
+import { printReceipt } from "../receipt";
 import { C } from "../tokens";
 import Layout from "../components/Layout";
-import { PageHeader, Button, Card, Badge, Field, inputStyle, Loading, EmptyState, ErrorBanner, ExplainerBox } from "../components/ui";
+import { PageHeader, Button, Card, Badge, Field, inputStyle, Loading, EmptyState, ErrorBanner, ExplainerBox, SearchInput, PeriodFilter, filterByPeriod } from "../components/ui";
 
 function formatMoney(n) {
   return "₦" + Number(n || 0).toLocaleString();
@@ -14,16 +15,20 @@ const STATUS_TONE = { Paid: "green", Partial: "default", Unpaid: "red" };
 export default function Sales() {
   const [sales, setSales] = useState([]);
   const [products, setProducts] = useState([]);
+  const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [search, setSearch] = useState("");
+  const [period, setPeriod] = useState("All");
 
   async function load() {
     setLoading(true);
     try {
-      const [s, p] = await Promise.all([api.listSales(), api.listProducts()]);
+      const [s, p, st] = await Promise.all([api.listSales(), api.listProducts(), api.getSettings().catch(() => null)]);
       setSales(s);
       setProducts(p);
+      setSettings(st);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -51,11 +56,26 @@ export default function Sales() {
       </ExplainerBox>
       <ErrorBanner message={error} />
 
-      {loading ? <Loading /> : sales.length === 0 ? (
-        <EmptyState message="No sales recorded yet." />
-      ) : (
-        <div className="space-y-2">
-          {sales.map(s => (
+      {loading ? <Loading /> : (() => {
+        const filtered = filterByPeriod(sales, period).filter(s => {
+          const term = search.trim().toLowerCase();
+          if (!term) return true;
+          return s.productName.toLowerCase().includes(term) ||
+            (s.customerName || "").toLowerCase().includes(term) ||
+            (s.customerPhone || "").includes(term) ||
+            new Date(s.date).toLocaleDateString().includes(term);
+        });
+        return (
+          <>
+            <div className="flex flex-wrap gap-3 items-center justify-between mb-5">
+              <SearchInput value={search} onChange={setSearch} placeholder="Search name, product, date..." />
+              <PeriodFilter value={period} onChange={setPeriod} />
+            </div>
+            {filtered.length === 0 ? (
+              <EmptyState message="No sales match this search." />
+            ) : (
+              <div className="space-y-2">
+                {filtered.map(s => (
             <Card key={s._id}>
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div>
@@ -69,14 +89,22 @@ export default function Sales() {
                   {s.customerName && <p className="text-sm mt-1" style={{ color: "#6B6960" }}>Customer: {s.customerName} {s.customerPhone && `· ${s.customerPhone}`}</p>}
                   <p className="text-xs mt-2" style={{ color: "#8A877D" }}>{new Date(s.date).toLocaleDateString()} · {s.paymentMethod}</p>
                 </div>
-                <button onClick={() => handleDelete(s._id)} className="text-xs flex items-center gap-1" style={{ color: C.red }}>
-                  <Trash2 size={12} /> Delete
-                </button>
+                <div className="flex flex-col gap-2 items-end">
+                  <button onClick={() => printReceipt(s, settings)} className="text-xs flex items-center gap-1" style={{ color: C.blueprint }}>
+                    <Printer size={12} /> Print receipt
+                  </button>
+                  <button onClick={() => handleDelete(s._id)} className="text-xs flex items-center gap-1" style={{ color: C.red }}>
+                    <Trash2 size={12} /> Delete
+                  </button>
+                </div>
               </div>
             </Card>
-          ))}
-        </div>
-      )}
+                ))}
+              </div>
+            )}
+          </>
+        );
+      })()}
 
       {showForm && <SaleModal products={products} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />}
     </Layout>

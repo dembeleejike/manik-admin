@@ -7,7 +7,7 @@ import { PageHeader, Button, Card, Field, inputStyle, Loading, ErrorBanner, Expl
 
 const EMPTY = {
   businessName: "", tagline: "", phone: "", phone2: "", whatsapp: "", email: "",
-  locations: [], hours: "", hoursSunday: "", aboutText: "", mapEmbedUrl: "", heroImageUrl: "",
+  locations: [], hours: "", hoursSunday: "", aboutText: "", heroImageUrl: "",
   stats: { years: "", projects: "", quality: "", support: "" },
 };
 
@@ -64,7 +64,7 @@ export default function Settings() {
   const updateStat = (k, v) => setForm(f => ({ ...f, stats: { ...f.stats, [k]: v } }));
 
   function addLocation() {
-    setForm(f => ({ ...f, locations: [...f.locations, { label: "", address: "" }] }));
+    setForm(f => ({ ...f, locations: [...f.locations, { label: "", address: "", mapEmbedUrl: "" }] }));
   }
   function updateLocation(i, field, value) {
     setForm(f => ({ ...f, locations: f.locations.map((loc, idx) => idx === i ? { ...loc, [field]: value } : loc) }));
@@ -116,7 +116,7 @@ export default function Settings() {
 
         <Card>
           <p className="text-xs uppercase tracking-widest mb-1" style={{ color: "#6B6960" }}>Locations</p>
-          <p className="text-xs mb-4" style={{ color: "#8A877D" }}>Add every office, shop, or branch. Give each one a short name (like "Head Office") and its full address.</p>
+          <p className="text-xs mb-4" style={{ color: "#8A877D" }}>Add every office, shop, or branch. Give each one a short name, its full address, and optionally its own Google Maps link.</p>
           <div className="space-y-3 mb-4">
             {form.locations.map((loc, i) => (
               <div key={i} className="p-3 flex flex-col gap-2" style={{ background: C.concreteD }}>
@@ -125,11 +125,15 @@ export default function Settings() {
                   <button type="button" onClick={() => removeLocation(i)}><Trash2 size={16} color={C.red} /></button>
                 </div>
                 <input value={loc.address} onChange={e => updateLocation(i, "address", e.target.value)} placeholder="Full address" style={inputStyle} />
+                <input value={loc.mapEmbedUrl || ""} onChange={e => updateLocation(i, "mapEmbedUrl", e.target.value)} placeholder="Google Maps embed link (optional)" style={inputStyle} />
               </div>
             ))}
             {form.locations.length === 0 && <p className="text-sm" style={{ color: "#8A877D" }}>No locations added yet.</p>}
           </div>
           <Button type="button" variant="ghost" icon={Plus} onClick={addLocation}>Add a location</Button>
+          <p className="text-xs mt-3" style={{ color: "#8A877D" }}>
+            To get a map link: on Google Maps, search the address → Share → Embed a map → copy just the URL inside <code>src="..."</code>.
+          </p>
         </Card>
 
         <Card>
@@ -176,19 +180,9 @@ export default function Settings() {
         </Card>
 
         <Card>
-          <p className="text-xs uppercase tracking-widest mb-4" style={{ color: "#6B6960" }}>Map</p>
-          <Field label="Google Maps embed link (optional)">
-            <input value={form.mapEmbedUrl} onChange={e => update("mapEmbedUrl", e.target.value)} placeholder="https://www.google.com/maps/embed?..." style={inputStyle} />
-          </Field>
-          <p className="text-xs mt-2" style={{ color: "#8A877D" }}>
-            In Google Maps: search your location → Share → Embed a map → copy the link from the code shown.
-          </p>
-        </Card>
-
-        <Card>
           <p className="text-xs uppercase tracking-widest mb-1" style={{ color: "#6B6960" }}>Backup your data</p>
           <p className="text-xs mb-4" style={{ color: "#8A877D" }}>
-            Download a copy of everything — good practice to do this every so often, in case anything ever goes wrong.
+            A full backup also runs automatically every night and is emailed to the owner — this button is for grabbing a copy right now, any time you want one.
           </p>
           {downloadError && <p className="text-sm mb-3" style={{ color: C.red }}>{downloadError}</p>}
           <div className="flex flex-wrap gap-3">

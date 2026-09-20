@@ -3,7 +3,7 @@ import { Plus, Trash2, X } from "lucide-react";
 import { api } from "../api";
 import { C } from "../tokens";
 import Layout from "../components/Layout";
-import { PageHeader, Button, Card, Field, inputStyle, Loading, EmptyState, ErrorBanner, ExplainerBox } from "../components/ui";
+import { PageHeader, Button, Card, Field, inputStyle, Loading, EmptyState, ErrorBanner, ExplainerBox, SearchInput, PeriodFilter, filterByPeriod } from "../components/ui";
 
 function formatMoney(n) {
   return "₦" + Number(n || 0).toLocaleString();
@@ -15,6 +15,8 @@ export default function Purchases() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [search, setSearch] = useState("");
+  const [period, setPeriod] = useState("All");
 
   async function load() {
     setLoading(true);
@@ -49,29 +51,47 @@ export default function Purchases() {
       </ExplainerBox>
       <ErrorBanner message={error} />
 
-      {loading ? <Loading /> : purchases.length === 0 ? (
-        <EmptyState message="No stock purchases recorded yet." />
-      ) : (
-        <div className="space-y-2">
-          {purchases.map(p => (
-            <Card key={p._id}>
-              <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div>
-                  <p className="font-semibold" style={{ color: C.ink }}>{p.productName}</p>
-                  <p className="text-sm mt-1" style={{ color: "#6B6960" }}>
-                    +{p.quantity} units @ {formatMoney(p.unitCost)} = <strong style={{ color: C.ink }}>{formatMoney(p.totalCost)}</strong>
-                  </p>
-                  {p.supplier && <p className="text-sm mt-1" style={{ color: "#6B6960" }}>Supplier: {p.supplier}</p>}
-                  <p className="text-xs mt-2" style={{ color: "#8A877D" }}>{new Date(p.date).toLocaleDateString()} {p.invoiceRef && `· Ref: ${p.invoiceRef}`}</p>
-                </div>
-                <button onClick={() => handleDelete(p._id)} className="text-xs flex items-center gap-1" style={{ color: C.red }}>
-                  <Trash2 size={12} /> Delete
-                </button>
+      {loading ? <Loading /> : (() => {
+        const filtered = filterByPeriod(purchases, period).filter(p => {
+          const term = search.trim().toLowerCase();
+          if (!term) return true;
+          return p.productName.toLowerCase().includes(term) ||
+            (p.supplier || "").toLowerCase().includes(term) ||
+            (p.invoiceRef || "").toLowerCase().includes(term) ||
+            new Date(p.date).toLocaleDateString().includes(term);
+        });
+        return (
+          <>
+            <div className="flex flex-wrap gap-3 items-center justify-between mb-5">
+              <SearchInput value={search} onChange={setSearch} placeholder="Search product, supplier, invoice..." />
+              <PeriodFilter value={period} onChange={setPeriod} />
+            </div>
+            {filtered.length === 0 ? (
+              <EmptyState message="No purchases match this search." />
+            ) : (
+              <div className="space-y-2">
+                {filtered.map(p => (
+                  <Card key={p._id}>
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div>
+                        <p className="font-semibold" style={{ color: C.ink }}>{p.productName}</p>
+                        <p className="text-sm mt-1" style={{ color: "#6B6960" }}>
+                          +{p.quantity} units @ {formatMoney(p.unitCost)} = <strong style={{ color: C.ink }}>{formatMoney(p.totalCost)}</strong>
+                        </p>
+                        {p.supplier && <p className="text-sm mt-1" style={{ color: "#6B6960" }}>Supplier: {p.supplier}</p>}
+                        <p className="text-xs mt-2" style={{ color: "#8A877D" }}>{new Date(p.date).toLocaleDateString()} {p.invoiceRef && `· Ref: ${p.invoiceRef}`}</p>
+                      </div>
+                      <button onClick={() => handleDelete(p._id)} className="text-xs flex items-center gap-1" style={{ color: C.red }}>
+                        <Trash2 size={12} /> Delete
+                      </button>
+                    </div>
+                  </Card>
+                ))}
               </div>
-            </Card>
-          ))}
-        </div>
-      )}
+            )}
+          </>
+        );
+      })()}
 
       {showForm && <PurchaseModal products={products} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />}
     </Layout>

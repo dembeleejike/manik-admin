@@ -3,7 +3,7 @@ import { Phone, Trash2, ShoppingCart, X } from "lucide-react";
 import { api } from "../api";
 import { C } from "../tokens";
 import Layout from "../components/Layout";
-import { PageHeader, Button, Card, Badge, Field, inputStyle, Loading, EmptyState, ErrorBanner, ExplainerBox } from "../components/ui";
+import { PageHeader, Button, Card, Badge, Field, inputStyle, Loading, EmptyState, ErrorBanner, ExplainerBox, SearchInput } from "../components/ui";
 
 const STATUS_TONE = { New: "red", Contacted: "default", Closed: "green" };
 
@@ -13,6 +13,7 @@ export default function Quotes() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("All");
+  const [search, setSearch] = useState("");
   const [converting, setConverting] = useState(null);
 
   async function load() {
@@ -49,7 +50,15 @@ export default function Quotes() {
     }
   }
 
-  const filtered = filter === "All" ? quotes : quotes.filter((q) => q.status === filter);
+  const statusFiltered = filter === "All" ? quotes : quotes.filter((q) => q.status === filter);
+  const term = search.trim().toLowerCase();
+  const filtered = !term ? statusFiltered : statusFiltered.filter(q =>
+    q.name.toLowerCase().includes(term) ||
+    (q.product || "").toLowerCase().includes(term) ||
+    q.phone.includes(term) ||
+    (q.location || "").toLowerCase().includes(term) ||
+    new Date(q.createdAt).toLocaleDateString().includes(term)
+  );
 
   return (
     <Layout>
@@ -59,6 +68,7 @@ export default function Quotes() {
       </ExplainerBox>
       <ErrorBanner message={error} />
 
+      <div className="mb-4"><SearchInput value={search} onChange={setSearch} placeholder="Search name, product, phone, location..." /></div>
       <div className="flex gap-2 mb-5">
         {["All", "New", "Contacted", "Closed"].map((f) => (
           <button

@@ -4,18 +4,10 @@ import { Lock } from "lucide-react";
 import { useAuth } from "../AuthContext";
 import { C } from "../tokens";
 
-// Read once, synchronously, so it's ready before the first render — and
-// remove it immediately so it doesn't resurface on a later, unrelated visit.
-function takeSessionMessage() {
-  const msg = sessionStorage.getItem("manik_admin_session_msg");
-  if (msg) sessionStorage.removeItem("manik_admin_session_msg");
-  return msg || "";
-}
-
 export default function Login() {
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(takeSessionMessage);
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -25,7 +17,7 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
-      await login(email, password);
+      await login(identifier, password);
       navigate("/");
     } catch (err) {
       setError(err.message);
@@ -45,11 +37,11 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs uppercase tracking-wide mb-1.5" style={{ color: "#6B6960" }}>Email</label>
+            <label className="block text-xs uppercase tracking-wide mb-1.5" style={{ color: "#6B6960" }}>Email or phone number</label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               required
               className="w-full px-3 py-2.5 text-sm"
               style={{ border: "1px solid #C9C5BA", background: "white" }}

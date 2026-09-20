@@ -3,7 +3,7 @@ import { X, Phone, MapPin } from "lucide-react";
 import { api } from "../api";
 import { C } from "../tokens";
 import Layout from "../components/Layout";
-import { PageHeader, Card, Badge, Loading, EmptyState, ErrorBanner, ExplainerBox } from "../components/ui";
+import { PageHeader, Card, Badge, Loading, EmptyState, ErrorBanner, ExplainerBox, SearchInput } from "../components/ui";
 
 function formatMoney(n) {
   return "₦" + Number(n || 0).toLocaleString();
@@ -14,6 +14,7 @@ export default function Customers() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState(null);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -36,12 +37,24 @@ export default function Customers() {
       </ExplainerBox>
       <ErrorBanner message={error} />
 
-      {loading ? <Loading /> : customers.length === 0 ? (
-        <EmptyState message="No customers yet — they'll appear here once you record your first sale." />
-      ) : (
-        <div className="space-y-2">
-          {customers.map(c => (
-            <Card key={c._id} className="cursor-pointer" onClick={() => setSelected(c)}>
+      {loading ? <Loading /> : (() => {
+        const term = search.trim().toLowerCase();
+        const filtered = !term ? customers : customers.filter(c =>
+          c.name.toLowerCase().includes(term) || c.phone.includes(term) || (c.location || "").toLowerCase().includes(term)
+        );
+        return (
+          <>
+            {customers.length > 0 && (
+              <div className="mb-5"><SearchInput value={search} onChange={setSearch} placeholder="Search name, phone, location..." /></div>
+            )}
+            {customers.length === 0 ? (
+              <EmptyState message="No customers yet — they'll appear here once you record your first sale." />
+            ) : filtered.length === 0 ? (
+              <EmptyState message="No customers match this search." />
+            ) : (
+              <div className="space-y-2">
+                {filtered.map(c => (
+                  <Card key={c._id} className="cursor-pointer" onClick={() => setSelected(c)}>
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div>
                   <p className="font-semibold" style={{ color: C.ink }}>{c.name}</p>
@@ -56,10 +69,13 @@ export default function Customers() {
                   )}
                 </div>
               </div>
-            </Card>
-          ))}
-        </div>
-      )}
+                  </Card>
+                ))}
+              </div>
+            )}
+          </>
+        );
+      })()}
 
       {selected && <CustomerDetail customerId={selected._id} onClose={() => setSelected(null)} />}
     </Layout>

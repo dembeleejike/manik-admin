@@ -58,7 +58,7 @@ export default function Admins() {
                   <p className="font-medium" style={{ color: C.ink }}>{a.name}</p>
                   <Badge tone={a.role === "owner" ? "green" : "default"}>{a.role}</Badge>
                 </div>
-                <p className="text-xs" style={{ color: "#6B6960" }}>{a.email}</p>
+                <p className="text-xs" style={{ color: "#6B6960" }}>{a.email || a.phone}</p>
               </div>
               {a._id !== currentAdmin?.id && (
                 <button onClick={() => handleDelete(a._id)} className="text-xs flex items-center gap-1" style={{ color: C.red }}>
@@ -83,6 +83,7 @@ export default function Admins() {
 function AddAdminModal({ onClose, onSaved }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("staff");
   const [saving, setSaving] = useState(false);
@@ -90,8 +91,8 @@ function AddAdminModal({ onClose, onSaved }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!email || !password) {
-      setError("Email and password are required.");
+    if ((!email && !phone) || !password) {
+      setError("An email or phone number, plus a password, are required.");
       return;
     }
     if (password.length < 6) {
@@ -101,7 +102,7 @@ function AddAdminModal({ onClose, onSaved }) {
     setSaving(true);
     setError("");
     try {
-      await api.createAdmin({ name, email, password, role });
+      await api.createAdmin({ name, email, phone, password, role });
       onSaved();
     } catch (err) {
       setError(err.message);
@@ -119,7 +120,8 @@ function AddAdminModal({ onClose, onSaved }) {
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Field label="Name"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. the owner's name" style={inputStyle} /></Field>
-          <Field label="Email"><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} /></Field>
+          <Field label="Email (optional if phone is given)"><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} /></Field>
+          <Field label="Phone (optional if email is given)"><input value={phone} onChange={(e) => setPhone(e.target.value)} style={inputStyle} /></Field>
           <Field label="Password"><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={inputStyle} /></Field>
           <Field label="Access level">
             <div className="flex gap-3">

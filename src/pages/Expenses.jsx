@@ -3,7 +3,7 @@ import { Plus, Trash2, X } from "lucide-react";
 import { api } from "../api";
 import { C } from "../tokens";
 import Layout from "../components/Layout";
-import { PageHeader, Button, Card, Field, inputStyle, Loading, EmptyState, ErrorBanner, ExplainerBox } from "../components/ui";
+import { PageHeader, Button, Card, Field, inputStyle, Loading, EmptyState, ErrorBanner, ExplainerBox, SearchInput, PeriodFilter, filterByPeriod } from "../components/ui";
 
 const CATEGORIES = ["Transportation", "Staff", "Shop", "Electricity", "Repairs", "Stock Purchase", "Delivery", "Other"];
 
@@ -16,6 +16,9 @@ export default function Expenses() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [search, setSearch] = useState("");
+  const [period, setPeriod] = useState("All");
+  const [category, setCategory] = useState("All");
 
   async function load() {
     setLoading(true);
@@ -40,8 +43,6 @@ export default function Expenses() {
     }
   }
 
-  const total = expenses.reduce((sum, e) => sum + e.amount, 0);
-
   return (
     <Layout>
       <PageHeader title="Expenses — Money spent running the business" action={<Button icon={Plus} onClick={() => setShowForm(true)}>Add expense</Button>} />
@@ -50,28 +51,55 @@ export default function Expenses() {
       </ExplainerBox>
       <ErrorBanner message={error} />
 
-      {!loading && expenses.length > 0 && (
-        <p className="text-sm mb-6" style={{ color: "#6B6960" }}>Total recorded: <strong style={{ color: C.ink }}>{formatMoney(total)}</strong></p>
-      )}
-
-      {loading ? <Loading /> : expenses.length === 0 ? (
-        <EmptyState message="No expenses recorded yet." />
-      ) : (
-        <div className="space-y-2">
-          {expenses.map(e => (
-            <Card key={e._id} className="flex items-center justify-between">
-              <div>
-                <p className="font-semibold" style={{ color: C.ink }}>{e.category} — {formatMoney(e.amount)}</p>
-                {e.description && <p className="text-sm mt-1" style={{ color: "#6B6960" }}>{e.description}</p>}
-                <p className="text-xs mt-1" style={{ color: "#8A877D" }}>{new Date(e.date).toLocaleDateString()}</p>
+      {loading ? <Loading /> : (() => {
+        const filtered = filterByPeriod(expenses, period)
+          .filter(e => category === "All" || e.category === category)
+          .filter(e => {
+            const term = search.trim().toLowerCase();
+            if (!term) return true;
+            return e.category.toLowerCase().includes(term) ||
+              (e.description || "").toLowerCase().includes(term) ||
+              new Date(e.date).toLocaleDateString().includes(term);
+          });
+        const total = filtered.reduce((sum, e) => sum + e.amount, 0);
+        return (
+          <>
+            <div className="flex flex-wrap gap-3 items-center justify-between mb-3">
+              <SearchInput value={search} onChange={setSearch} placeholder="Search category, description, date..." />
+              <PeriodFilter value={period} onChange={setPeriod} />
+            </div>
+            <div className="flex flex-wrap gap-2 mb-5">
+              {["All", ...CATEGORIES].map(c => (
+                <button key={c} onClick={() => setCategory(c)} className="text-xs uppercase px-3 py-1.5"
+                  style={{ border: `1px solid ${category === c ? C.safety : "#C9C5BA"}`, color: category === c ? C.safety : "#6B6960" }}>
+                  {c}
+                </button>
+              ))}
+            </div>
+            {filtered.length > 0 && (
+              <p className="text-sm mb-4" style={{ color: "#6B6960" }}>Total for this view: <strong style={{ color: C.ink }}>{formatMoney(total)}</strong></p>
+            )}
+            {filtered.length === 0 ? (
+              <EmptyState message="No expenses match this search." />
+            ) : (
+              <div className="space-y-2">
+                {filtered.map(e => (
+                  <Card key={e._id} className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold" style={{ color: C.ink }}>{e.category} — {formatMoney(e.amount)}</p>
+                      {e.description && <p className="text-sm mt-1" style={{ color: "#6B6960" }}>{e.description}</p>}
+                      <p className="text-xs mt-1" style={{ color: "#8A877D" }}>{new Date(e.date).toLocaleDateString()}</p>
+                    </div>
+                    <button onClick={() => handleDelete(e._id)} className="text-xs flex items-center gap-1" style={{ color: C.red }}>
+                      <Trash2 size={12} /> Delete
+                    </button>
+                  </Card>
+                ))}
               </div>
-              <button onClick={() => handleDelete(e._id)} className="text-xs flex items-center gap-1" style={{ color: C.red }}>
-                <Trash2 size={12} /> Delete
-              </button>
-            </Card>
-          ))}
-        </div>
-      )}
+            )}
+          </>
+        );
+      })()}
 
       {showForm && <ExpenseModal onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />}
     </Layout>

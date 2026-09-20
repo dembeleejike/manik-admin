@@ -21,8 +21,8 @@ export function AuthProvider({ children }) {
     setReady(true);
   }, []);
 
-  async function login(email, password) {
-    const data = await api.login(email, password);
+  async function login(identifier, password) {
+    const data = await api.login(identifier, password);
     localStorage.setItem("manik_admin_token", data.token);
     localStorage.setItem("manik_admin_info", JSON.stringify(data.admin));
     setAdmin(data.admin);
