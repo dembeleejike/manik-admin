@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { Save, Plus, Trash2, Download } from "lucide-react";
+import { Save, Plus, Trash2 } from "lucide-react";
 import { api } from "../api";
 import { C } from "../tokens";
 import Layout from "../components/Layout";
+import BackupCard from "../components/BackupCard";
+import { prepareImage } from "../utils/images";
 import { PageHeader, Button, Card, Field, inputStyle, Loading, ErrorBanner, ExplainerBox } from "../components/ui";
 
 const EMPTY = {
@@ -17,7 +19,6 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
-  const [downloadError, setDownloadError] = useState("");
   const [heroFile, setHeroFile] = useState(null);
   const [heroUploading, setHeroUploading] = useState(false);
   const [heroError, setHeroError] = useState("");
@@ -27,22 +28,13 @@ export default function Settings() {
     setHeroUploading(true);
     setHeroError("");
     try {
-      const updated = await api.uploadHeroImage(heroFile);
+      const updated = await api.uploadHeroImage(await prepareImage(heroFile));
       setForm(f => ({ ...f, heroImageUrl: updated.heroImageUrl }));
       setHeroFile(null);
     } catch (err) {
       setHeroError(err.message);
     } finally {
       setHeroUploading(false);
-    }
-  }
-
-  async function handleDownload(path, filename) {
-    setDownloadError("");
-    try {
-      await api.downloadFile(path, filename);
-    } catch (err) {
-      setDownloadError(err.message);
     }
   }
 
@@ -153,7 +145,7 @@ export default function Settings() {
 
         <Card>
           <p className="text-xs uppercase tracking-widest mb-4" style={{ color: "#6B6960" }}>Homepage numbers</p>
-          <p className="text-xs mb-4" style={{ color: "#8A877D" }}>Only put numbers that are actually true — leave blank to use generic placeholders instead.</p>
+          <p className="text-xs mb-4" style={{ color: "#8A877D" }}>Only put numbers that are actually true. Anything you leave blank is simply not shown on the website.</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Field label="Years in business"><input value={form.stats.years} onChange={e => updateStat("years", e.target.value)} placeholder="10+" style={inputStyle} /></Field>
             <Field label="Projects done"><input value={form.stats.projects} onChange={e => updateStat("projects", e.target.value)} placeholder="500+" style={inputStyle} /></Field>
@@ -179,21 +171,7 @@ export default function Settings() {
           </div>
         </Card>
 
-        <Card>
-          <p className="text-xs uppercase tracking-widest mb-1" style={{ color: "#6B6960" }}>Backup your data</p>
-          <p className="text-xs mb-4" style={{ color: "#8A877D" }}>
-            A full backup also runs automatically every night and is emailed to the owner — this button is for grabbing a copy right now, any time you want one.
-          </p>
-          {downloadError && <p className="text-sm mb-3" style={{ color: C.red }}>{downloadError}</p>}
-          <div className="flex flex-wrap gap-3">
-            <Button type="button" variant="ghost" icon={Download} onClick={() => handleDownload("/api/export/backup", `manik-backup-${new Date().toISOString().slice(0, 10)}.json`)}>
-              Download full backup
-            </Button>
-            <Button type="button" variant="ghost" icon={Download} onClick={() => handleDownload("/api/export/sales.csv", `manik-sales-${new Date().toISOString().slice(0, 10)}.csv`)}>
-              Download sales as spreadsheet
-            </Button>
-          </div>
-        </Card>
+        <BackupCard />
 
         <div>
           <Button type="submit" disabled={saving} icon={Save}>{saving ? "Saving..." : "Save changes"}</Button>

@@ -3,7 +3,9 @@ import { Plus, Trash2, X } from "lucide-react";
 import { api } from "../api";
 import { C } from "../tokens";
 import Layout from "../components/Layout";
-import { PageHeader, Button, Card, Field, inputStyle, Loading, EmptyState, ErrorBanner, ExplainerBox, SearchInput, PeriodFilter, filterByPeriod } from "../components/ui";
+import { PageHeader, Button, Card, Field, inputStyle, Loading, EmptyState, ErrorBanner, ExplainerBox } from "../components/ui";
+import { useListView, FilterBar, ExportMenu } from "../components/Filters";
+import { useAuth } from "../AuthContext";
 
 function formatMoney(n) {
   return "₦" + Number(n || 0).toLocaleString();
@@ -15,8 +17,7 @@ export default function Purchases() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [search, setSearch] = useState("");
-  const [period, setPeriod] = useState("All");
+  const { admin } = useAuth();
 
   async function load() {
     setLoading(true);
@@ -51,50 +52,87 @@ export default function Purchases() {
       </ExplainerBox>
       <ErrorBanner message={error} />
 
-      {loading ? <Loading /> : (() => {
-        const filtered = filterByPeriod(purchases, period).filter(p => {
-          const term = search.trim().toLowerCase();
-          if (!term) return true;
-          return p.productName.toLowerCase().includes(term) ||
-            (p.supplier || "").toLowerCase().includes(term) ||
-            (p.invoiceRef || "").toLowerCase().includes(term) ||
-            new Date(p.date).toLocaleDateString().includes(term);
-        });
-        return (
-          <>
-            <div className="flex flex-wrap gap-3 items-center justify-between mb-5">
-              <SearchInput value={search} onChange={setSearch} placeholder="Search product, supplier, invoice..." />
-              <PeriodFilter value={period} onChange={setPeriod} />
-            </div>
-            {filtered.length === 0 ? (
-              <EmptyState message="No purchases match this search." />
-            ) : (
-              <div className="space-y-2">
-                {filtered.map(p => (
-                  <Card key={p._id}>
-                    <div className="flex items-start justify-between gap-3 flex-wrap">
-                      <div>
-                        <p className="font-semibold" style={{ color: C.ink }}>{p.productName}</p>
-                        <p className="text-sm mt-1" style={{ color: "#6B6960" }}>
-                          +{p.quantity} units @ {formatMoney(p.unitCost)} = <strong style={{ color: C.ink }}>{formatMoney(p.totalCost)}</strong>
-                        </p>
-                        {p.supplier && <p className="text-sm mt-1" style={{ color: "#6B6960" }}>Supplier: {p.supplier}</p>}
-                        <p className="text-xs mt-2" style={{ color: "#8A877D" }}>{new Date(p.date).toLocaleDateString()} {p.invoiceRef && `· Ref: ${p.invoiceRef}`}</p>
-                      </div>
-                      <button onClick={() => handleDelete(p._id)} className="text-xs flex items-center gap-1" style={{ color: C.red }}>
-                        <Trash2 size={12} /> Delete
-                      </button>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </>
-        );
-      })()}
+      {loading ? <Loading /> : (
+        <PurchasesList purchases={purchases} isOwner={admin?.role === "owner"} onDelete={handleDelete} />
+      )}
 
       {showForm && <PurchaseModal products={products} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />}
     </Layout>
+  );
+}
+
+const PURCHASES_CFG = {
+  dateField: "date",
+  search: (p) => [p.productName, p.supplier, p.invoiceRef, p.notes].join(" "),
+  filters: [
+    { key: "product", label: "Product", get: (p) => p.productName },
+    { key: "supplier", label: "Supplier", get: (p) => p.supplier || "" },
+  ],
+  sorts: [
+    { key: "date", label: "Date", get: (p) => new Date(p.date) },
+    { key: "cost", label: "Total cost", get: (p) => p.totalCost },
+    { key: "product", label: "Product", get: (p) => p.productName },
+    { key: "supplier", label: "Supplier", get: (p) => p.supplier || "" },
+    { key: "qty", label: "Quantity", get: (p) => p.quantity },
+  ],
+  defaultSort: "date",
+  defaultDir: "desc",
+};
+
+const PURCHASES_COLUMNS_ALL = [
+  { label: "Date", get: (p) => p.date, type: "date" },
+  { label: "Product", get: (p) => p.productName },
+  { label: "Supplier", get: (p) => p.supplier },
+  { label: "Invoice ref", get: (p) => p.invoiceRef },
+  { label: "Quantity", get: (p) => p.quantity, type: "number" },
+  { label: "Unit cost", get: (p) => p.unitCost, type: "money" },
+  { label: "Total cost", get: (p) => p.totalCost, type: "money" },
+  { label: "Notes", get: (p) => p.notes },
+];
+
+function PurchasesList({ purchases, isOwner, onDelete }) {
+  // What the shop paid is owner-only: the server doesn't send prices to staff, so
+  // the screen and exports leave them out too.
+  const cfg = isOwner ? PURCHASES_CFG : { ...PURCHASES_CFG, sorts: PURCHASES_CFG.sorts.filter((s) => s.key !== "cost") };
+  const columns = isOwner ? PURCHASES_COLUMNS_ALL : PURCHASES_COLUMNS_ALL.filter((c) => !/cost/i.test(c.label));
+  const view = useListView(purchases, cfg);
+  const totalShown = view.rows.reduce((n, p) => n + (p.totalCost || 0), 0);
+  return (
+    <>
+      <FilterBar
+        view={view} cfg={cfg} items={purchases}
+        placeholder="Search product, supplier, invoice, month…"
+        actions={<ExportMenu rows={view.rows} columns={columns} filename="manik-purchases" sheetName="Purchases" title="MANIK purchases" />}
+      />
+      {isOwner && view.rows.length > 0 && (
+        <p className="text-sm mb-4" style={{ color: "#6B6960" }}>Spent on stock in this view: <strong style={{ color: C.ink }}>{formatMoney(totalShown)}</strong></p>
+      )}
+      {view.rows.length === 0 ? (
+        <EmptyState message={purchases.length === 0 ? "No purchases recorded yet." : "No purchases match these filters."} />
+      ) : (
+        <div className="space-y-2">
+          {view.rows.map((p) => (
+            <Card key={p._id}>
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div>
+                  <p className="font-semibold" style={{ color: C.ink }}>{p.productName}</p>
+                  <p className="text-sm mt-1" style={{ color: "#6B6960" }}>
+                    +{p.quantity} units{isOwner && <> @ {formatMoney(p.unitCost)} = <strong style={{ color: C.ink }}>{formatMoney(p.totalCost)}</strong></>}
+                  </p>
+                  {p.supplier && <p className="text-sm mt-1" style={{ color: "#6B6960" }}>Supplier: {p.supplier}</p>}
+                  <p className="text-xs mt-2" style={{ color: "#8A877D" }}>{new Date(p.date).toLocaleDateString()} {p.invoiceRef && `· Ref: ${p.invoiceRef}`}</p>
+                </div>
+                {isOwner && (
+                  <button onClick={() => onDelete(p._id)} className="text-xs flex items-center gap-1" style={{ color: C.red }}>
+                    <Trash2 size={12} /> Delete
+                  </button>
+                )}
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 

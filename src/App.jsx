@@ -15,6 +15,10 @@ import Purchases from "./pages/Purchases";
 import Expenses from "./pages/Expenses";
 import Reports from "./pages/Reports";
 import Customers from "./pages/Customers";
+import Activity from "./pages/Activity";
+import Quotations from "./pages/Quotations";
+import Stocktake from "./pages/Stocktake";
+import Help from "./pages/Help";
 
 export default function App() {
   return (
@@ -32,6 +36,10 @@ export default function App() {
           <Route path="/reports" element={<ProtectedRoute><OwnerRoute><Reports /></OwnerRoute></ProtectedRoute>} />
           <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><OwnerRoute><SettingsPage /></OwnerRoute></ProtectedRoute>} />
+          <Route path="/stocktake" element={<ProtectedRoute><Stocktake /></ProtectedRoute>} />
+          <Route path="/quotations" element={<ProtectedRoute><Quotations /></ProtectedRoute>} />
+          <Route path="/activity" element={<ProtectedRoute><OwnerRoute><Activity /></OwnerRoute></ProtectedRoute>} />
+          <Route path="/help" element={<ProtectedRoute><Help /></ProtectedRoute>} />
           <Route path="/admins" element={<ProtectedRoute><OwnerRoute><Admins /></OwnerRoute></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>

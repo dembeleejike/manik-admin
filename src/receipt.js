@@ -2,6 +2,18 @@
 // print dialog for it. No PDF library needed — this is exactly what
 // window.print() is for, and it lets the customer's browser/printer
 // handle paper size correctly.
+// Everything printed on a receipt comes from user-entered text (customer names
+// can originate from the public quote form), so it must be escaped before it
+// goes into HTML. Otherwise a customer could plant a script that runs inside
+// the admin's browser when the receipt window opens.
+const esc = (v) =>
+  String(v ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 export function printReceipt(sale, settings) {
   const businessName = settings?.businessName || "MANIK";
   const tagline = settings?.tagline || "";
@@ -14,7 +26,7 @@ export function printReceipt(sale, settings) {
 <html>
 <head>
 <meta charset="utf-8" />
-<title>Receipt — ${sale.productName}</title>
+<title>Receipt — ${esc(sale.productName)}</title>
 <style>
   body { font-family: Arial, sans-serif; padding: 24px; color: #171A1C; max-width: 420px; margin: 0 auto; }
   h1 { font-size: 18px; margin: 0 0 2px; }
@@ -31,27 +43,26 @@ export function printReceipt(sale, settings) {
 </style>
 </head>
 <body>
-  <h1>${businessName}</h1>
-  ${tagline ? `<div class="tagline">${tagline}</div>` : ""}
-  ${locations.map(loc => `<div class="contact">${loc.label ? loc.label + ": " : ""}${loc.address}</div>`).join("")}
-  ${phone ? `<div class="contact">Tel: ${phone}${phone2 ? " / " + phone2 : ""}</div>` : ""}
+  <h1>${esc(businessName)}</h1>
+  ${tagline ? `<div class="tagline">${esc(tagline)}</div>` : ""}
+  ${locations.map(loc => `<div class="contact">${loc.label ? esc(loc.label) + ": " : ""}${esc(loc.address)}</div>`).join("")}
+  ${phone ? `<div class="contact">Tel: ${esc(phone)}${phone2 ? " / " + esc(phone2) : ""}</div>` : ""}
   <hr />
   <table>
     <tr><td class="label">Date</td><td class="right">${new Date(sale.date).toLocaleDateString()}</td></tr>
     <tr><td class="label">Receipt No.</td><td class="right">${sale._id.slice(-8).toUpperCase()}</td></tr>
-    ${sale.customerName ? `<tr><td class="label">Customer</td><td class="right">${sale.customerName}</td></tr>` : ""}
-    ${sale.customerPhone ? `<tr><td class="label">Phone</td><td class="right">${sale.customerPhone}</td></tr>` : ""}
+    ${sale.customerName ? `<tr><td class="label">Customer</td><td class="right">${esc(sale.customerName)}</td></tr>` : ""}
+    ${sale.customerPhone ? `<tr><td class="label">Phone</td><td class="right">${esc(sale.customerPhone)}</td></tr>` : ""}
   </table>
   <hr />
   <table>
-    <tr><td class="label">Item</td><td class="right">${sale.productName}</td></tr>
-    <tr><td class="label">Quantity</td><td class="right">${sale.quantity}</td></tr>
+    <tr><td class="label">Item</td><td class="right">${esc(sale.productName)}</td></tr>
+    <tr><td class="label">Quantity</td><td class="right">${esc(sale.quantity)}</td></tr>
     <tr><td class="label">Unit Price</td><td class="right">₦${Number(sale.unitPrice).toLocaleString()}</td></tr>
     <tr class="total-row"><td>Total</td><td class="right">₦${Number(sale.totalAmount).toLocaleString()}</td></tr>
-    <tr><td class="label">Payment</td><td class="right">${sale.paymentStatus} (${sale.paymentMethod})</td></tr>
+    <tr><td class="label">Payment</td><td class="right">${esc(sale.paymentStatus)} (${esc(sale.paymentMethod)})</td></tr>
   </table>
   <div class="footer">Thank you for your patronage.</div>
-  <script>window.onload = () => window.print();</script>
 </body>
 </html>`;
 
@@ -62,4 +73,6 @@ export function printReceipt(sale, settings) {
   }
   win.document.write(html);
   win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 300);
 }

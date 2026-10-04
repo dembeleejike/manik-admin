@@ -3,9 +3,14 @@ import { Plus, Trash2, X } from "lucide-react";
 import { api } from "../api";
 import { C } from "../tokens";
 import Layout from "../components/Layout";
-import { PageHeader, Button, Card, Field, inputStyle, Loading, EmptyState, ErrorBanner, ExplainerBox, SearchInput, PeriodFilter, filterByPeriod } from "../components/ui";
+import { PageHeader, Button, Card, Field, inputStyle, Loading, EmptyState, ErrorBanner, ExplainerBox } from "../components/ui";
+import { useListView, FilterBar, ExportMenu } from "../components/Filters";
 
 const CATEGORIES = ["Transportation", "Staff", "Shop", "Electricity", "Repairs", "Stock Purchase", "Delivery", "Other"];
+// New expenses can't use "Stock Purchase": buying stock is recorded on the
+// Purchases page and already counts as cost of goods in Reports, so logging it
+// here too would subtract it from profit twice. Old records keep the label.
+const NEW_EXPENSE_CATEGORIES = CATEGORIES.filter((c) => c !== "Stock Purchase");
 
 function formatMoney(n) {
   return "₦" + Number(n || 0).toLocaleString();
@@ -16,9 +21,6 @@ export default function Expenses() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [search, setSearch] = useState("");
-  const [period, setPeriod] = useState("All");
-  const [category, setCategory] = useState("All");
 
   async function load() {
     setLoading(true);
@@ -51,63 +53,70 @@ export default function Expenses() {
       </ExplainerBox>
       <ErrorBanner message={error} />
 
-      {loading ? <Loading /> : (() => {
-        const filtered = filterByPeriod(expenses, period)
-          .filter(e => category === "All" || e.category === category)
-          .filter(e => {
-            const term = search.trim().toLowerCase();
-            if (!term) return true;
-            return e.category.toLowerCase().includes(term) ||
-              (e.description || "").toLowerCase().includes(term) ||
-              new Date(e.date).toLocaleDateString().includes(term);
-          });
-        const total = filtered.reduce((sum, e) => sum + e.amount, 0);
-        return (
-          <>
-            <div className="flex flex-wrap gap-3 items-center justify-between mb-3">
-              <SearchInput value={search} onChange={setSearch} placeholder="Search category, description, date..." />
-              <PeriodFilter value={period} onChange={setPeriod} />
-            </div>
-            <div className="flex flex-wrap gap-2 mb-5">
-              {["All", ...CATEGORIES].map(c => (
-                <button key={c} onClick={() => setCategory(c)} className="text-xs uppercase px-3 py-1.5"
-                  style={{ border: `1px solid ${category === c ? C.safety : "#C9C5BA"}`, color: category === c ? C.safety : "#6B6960" }}>
-                  {c}
-                </button>
-              ))}
-            </div>
-            {filtered.length > 0 && (
-              <p className="text-sm mb-4" style={{ color: "#6B6960" }}>Total for this view: <strong style={{ color: C.ink }}>{formatMoney(total)}</strong></p>
-            )}
-            {filtered.length === 0 ? (
-              <EmptyState message="No expenses match this search." />
-            ) : (
-              <div className="space-y-2">
-                {filtered.map(e => (
-                  <Card key={e._id} className="flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold" style={{ color: C.ink }}>{e.category} — {formatMoney(e.amount)}</p>
-                      {e.description && <p className="text-sm mt-1" style={{ color: "#6B6960" }}>{e.description}</p>}
-                      <p className="text-xs mt-1" style={{ color: "#8A877D" }}>{new Date(e.date).toLocaleDateString()}</p>
-                    </div>
-                    <button onClick={() => handleDelete(e._id)} className="text-xs flex items-center gap-1" style={{ color: C.red }}>
-                      <Trash2 size={12} /> Delete
-                    </button>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </>
-        );
-      })()}
+      {loading ? <Loading /> : <ExpensesList expenses={expenses} onDelete={handleDelete} />}
 
       {showForm && <ExpenseModal onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />}
     </Layout>
   );
 }
 
+const EXPENSES_CFG = {
+  dateField: "date",
+  search: (e) => [e.category, e.description].join(" "),
+  filters: [{ key: "category", label: "Category", get: (e) => e.category, options: CATEGORIES }],
+  sorts: [
+    { key: "date", label: "Date", get: (e) => new Date(e.date) },
+    { key: "amount", label: "Amount", get: (e) => e.amount },
+    { key: "category", label: "Category", get: (e) => e.category },
+  ],
+  defaultSort: "date",
+  defaultDir: "desc",
+};
+
+const EXPENSES_COLUMNS = [
+  { label: "Date", get: (e) => e.date, type: "date" },
+  { label: "Category", get: (e) => e.category },
+  { label: "Description", get: (e) => e.description },
+  { label: "Amount", get: (e) => e.amount, type: "money" },
+];
+
+function ExpensesList({ expenses, onDelete }) {
+  const view = useListView(expenses, EXPENSES_CFG);
+  const total = view.rows.reduce((sum, e) => sum + e.amount, 0);
+  return (
+    <>
+      <FilterBar
+        view={view} cfg={EXPENSES_CFG} items={expenses}
+        placeholder="Search category, description, month…"
+        actions={<ExportMenu rows={view.rows} columns={EXPENSES_COLUMNS} filename="manik-expenses" sheetName="Expenses" title="MANIK expenses" />}
+      />
+      {view.rows.length > 0 && (
+        <p className="text-sm mb-4" style={{ color: "#6B6960" }}>Total for this view: <strong style={{ color: C.ink }}>{formatMoney(total)}</strong></p>
+      )}
+      {view.rows.length === 0 ? (
+        <EmptyState message={expenses.length === 0 ? "No expenses recorded yet." : "No expenses match these filters."} />
+      ) : (
+        <div className="space-y-2">
+          {view.rows.map((e) => (
+            <Card key={e._id} className="flex items-center justify-between">
+              <div>
+                <p className="font-semibold" style={{ color: C.ink }}>{e.category} — {formatMoney(e.amount)}</p>
+                {e.description && <p className="text-sm mt-1" style={{ color: "#6B6960" }}>{e.description}</p>}
+                <p className="text-xs mt-1" style={{ color: "#8A877D" }}>{new Date(e.date).toLocaleDateString()}</p>
+              </div>
+              <button onClick={() => onDelete(e._id)} className="text-xs flex items-center gap-1" style={{ color: C.red }}>
+                <Trash2 size={12} /> Delete
+              </button>
+            </Card>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
 function ExpenseModal({ onClose, onSaved }) {
-  const [category, setCategory] = useState(CATEGORIES[0]);
+  const [category, setCategory] = useState(NEW_EXPENSE_CATEGORIES[0]);
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
@@ -141,7 +150,7 @@ function ExpenseModal({ onClose, onSaved }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <Field label="Category">
             <select value={category} onChange={e => setCategory(e.target.value)} style={inputStyle}>
-              {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+              {NEW_EXPENSE_CATEGORIES.map(c => <option key={c}>{c}</option>)}
             </select>
           </Field>
           <Field label="Amount (₦)"><input type="number" min="0" value={amount} onChange={e => setAmount(e.target.value)} style={inputStyle} /></Field>

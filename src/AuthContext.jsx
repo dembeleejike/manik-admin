@@ -7,30 +7,32 @@ export function AuthProvider({ children }) {
   const [admin, setAdmin] = useState(null);
   const [ready, setReady] = useState(false);
 
+  // The session lives in an httpOnly cookie this code cannot read, so on load we
+  // simply ask the server who (if anyone) is signed in.
   useEffect(() => {
-    const token = localStorage.getItem("manik_admin_token");
-    const savedAdmin = localStorage.getItem("manik_admin_info");
-    if (token && savedAdmin) {
-      try {
-        setAdmin(JSON.parse(savedAdmin));
-      } catch {
-        localStorage.removeItem("manik_admin_token");
-        localStorage.removeItem("manik_admin_info");
-      }
-    }
-    setReady(true);
+    let cancelled = false;
+    api.me()
+      .then((data) => { if (!cancelled) setAdmin(data.admin); })
+      .catch(() => { if (!cancelled) setAdmin(null); })
+      .finally(() => { if (!cancelled) setReady(true); });
+    return () => { cancelled = true; };
   }, []);
 
   async function login(identifier, password) {
     const data = await api.login(identifier, password);
-    localStorage.setItem("manik_admin_token", data.token);
-    localStorage.setItem("manik_admin_info", JSON.stringify(data.admin));
-    setAdmin(data.admin);
+    // Confirm the browser actually kept the secure cookie before trusting the login.
+    try {
+      const me = await api.me();
+      setAdmin(me.admin);
+    } catch {
+      setAdmin(null);
+      throw new Error("You signed in, but your browser blocked the secure sign-in cookie. Turn off \"block all cookies\" for this site, or ask the developer to check the setup guide.");
+    }
+    return data.admin;
   }
 
-  function logout() {
-    localStorage.removeItem("manik_admin_token");
-    localStorage.removeItem("manik_admin_info");
+  async function logout() {
+    try { await api.logout(); } catch { /* signing out locally either way */ }
     setAdmin(null);
   }
 

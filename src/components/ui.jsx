@@ -29,9 +29,9 @@ export function Button({ children, onClick, variant = "primary", type = "button"
   );
 }
 
-export function Card({ children, className = "" }) {
+export function Card({ children, className = "", style, onClick }) {
   return (
-    <div className={`p-5 ${className}`} style={{ background: C.cream, border: `1px solid ${C.ink}1A` }}>
+    <div className={`p-5 ${className}`} onClick={onClick} style={{ background: C.cream, border: `1px solid ${C.ink}1A`, ...style }}>
       {children}
     </div>
   );
@@ -138,4 +138,9 @@ export function ExplainerBox({ children }) {
       {children}
     </div>
   );
+}
+
+// Shared money formatting for every screen: ₦12,500
+export function formatMoney(n) {
+  return "₦" + Number(n || 0).toLocaleString("en-NG");
 }

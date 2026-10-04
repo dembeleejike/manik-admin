@@ -4,8 +4,43 @@ import { api } from "../api";
 import { C } from "../tokens";
 import Layout from "../components/Layout";
 import { PageHeader, Button, Card, Badge, Field, inputStyle, Loading, EmptyState, ErrorBanner, ExplainerBox } from "../components/ui";
+import { useListView, FilterBar, ExportMenu } from "../components/Filters";
+import { useAuth } from "../AuthContext";
+import PhotoPicker from "../components/PhotoPicker";
 
 const STATUS_OPTIONS = ["In stock", "Low stock", "Made to order", "Out of stock"];
+
+const stockLevel = (p) => ((p.quantity ?? 0) <= 0 ? "Out" : p.quantity <= (p.lowStockThreshold ?? 5) ? "Low" : "OK");
+
+const PRODUCTS_CFG = {
+  dateField: "createdAt", // "when was this product added"
+  search: (p) => [p.name, p.ref, p.description, p.category?.name, p.status, ...(p.specs || []).map((s) => s.value)].join(" "),
+  filters: [
+    { key: "category", label: "Category", get: (p) => p.category?.name || "" },
+    { key: "status", label: "Status", get: (p) => p.status, options: STATUS_OPTIONS },
+    { key: "stock", label: "Stock level", get: stockLevel, options: ["OK", "Low", "Out"] },
+  ],
+  sorts: [
+    { key: "name", label: "Name", get: (p) => p.name },
+    { key: "stock", label: "Stock quantity", get: (p) => p.quantity ?? 0 },
+    { key: "category", label: "Category", get: (p) => p.category?.name || "" },
+    { key: "added", label: "Date added", get: (p) => new Date(p.createdAt) },
+    { key: "price", label: "Selling price", get: (p) => p.sellingPrice ?? 0 },
+  ],
+  defaultSort: "name",
+  defaultDir: "asc",
+};
+
+const PRODUCTS_COLUMNS_ALL = [
+  { label: "Ref", get: (p) => p.ref },
+  { label: "Name", get: (p) => p.name },
+  { label: "Category", get: (p) => p.category?.name || "" },
+  { label: "Status", get: (p) => p.status },
+  { label: "Stock quantity", get: (p) => p.quantity ?? 0, type: "number" },
+  { label: "Cost price", get: (p) => p.costPrice, type: "money" },
+  { label: "Selling price", get: (p) => p.sellingPrice, type: "money" },
+  { label: "Added", get: (p) => p.createdAt, type: "date" },
+];
 
 export default function Products() {
   const [products, setProducts] = useState([]);
@@ -14,6 +49,11 @@ export default function Products() {
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(null); // null = closed, {} = new, {...} = editing existing
   const [showCategories, setShowCategories] = useState(false);
+  const view = useListView(products, PRODUCTS_CFG);
+  const { admin } = useAuth();
+  const isOwner = admin?.role === "owner";
+  // What the shop pays for stock is owner-only, so staff exports leave it out.
+  const productColumns = isOwner ? PRODUCTS_COLUMNS_ALL : PRODUCTS_COLUMNS_ALL.filter((c) => c.label !== "Cost price");
 
   async function load() {
     setLoading(true);
@@ -31,7 +71,7 @@ export default function Products() {
   useEffect(() => { load(); }, []);
 
   async function handleDelete(id) {
-    if (!confirm("Delete this product? This can't be undone.")) return;
+    if (!confirm("Delete this product and its photos? This can't be undone. (Products that already have sales or purchases can't be deleted — mark them Out of stock instead.)")) return;
     try {
       await api.deleteProduct(id);
       setProducts((prev) => prev.filter((p) => p._id !== id));
@@ -56,13 +96,22 @@ export default function Products() {
       </ExplainerBox>
       <ErrorBanner message={error} />
 
+      {!loading && products.length > 0 && (
+        <FilterBar
+          view={view} cfg={PRODUCTS_CFG} items={products}
+          placeholder="Search name, reference, category…"
+          actions={<ExportMenu rows={view.rows} columns={productColumns} filename="manik-products" sheetName="Products" title="MANIK products" />}
+        />
+      )}
+
       {loading ? (
         <Loading />
       ) : products.length === 0 ? (
         <EmptyState message="No products yet — click 'Add product' to create the first one." />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {products.map((p) => (
+          {view.rows.length === 0 && <div className="md:col-span-2"><EmptyState message="No products match these filters." /></div>}
+          {view.rows.map((p) => (
             <Card key={p._id} className="flex gap-4">
               <div className="w-20 h-20 shrink-0 flex items-center justify-center text-xs" style={{ background: C.concreteD, color: "#8A877D" }}>
                 {p.images?.[0] ? (
@@ -98,6 +147,7 @@ export default function Products() {
         <ProductModal
           product={editing}
           categories={categories}
+          isOwner={isOwner}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); load(); }}
         />
@@ -136,7 +186,7 @@ function CategoriesModal({ categories, onClose, onChanged }) {
   }
 
   async function handleDelete(id) {
-    if (!confirm("Delete this category? Products in it will keep it referenced but it won't be selectable for new ones.")) return;
+    if (!confirm("Delete this category? A category that still has products in it can't be deleted.")) return;
     try {
       await api.deleteCategory(id);
       onChanged();
@@ -173,7 +223,7 @@ function CategoriesModal({ categories, onClose, onChanged }) {
   );
 }
 
-function ProductModal({ product, categories, onClose, onSaved }) {
+function ProductModal({ product, categories, onClose, onSaved, isOwner }) {
   const isNew = !product._id;
   const [name, setName] = useState(product.name || "");
   const [ref, setRef] = useState(product.ref || "");
@@ -183,7 +233,7 @@ function ProductModal({ product, categories, onClose, onSaved }) {
   const [quantity, setQuantity] = useState(product.quantity ?? 0);
   const [costPrice, setCostPrice] = useState(product.costPrice ?? "");
   const [sellingPrice, setSellingPrice] = useState(product.sellingPrice ?? "");
-  const [files, setFiles] = useState([]);
+  const [photoChanges, setPhotoChanges] = useState({ removedUrls: [], newFiles: [] });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -201,11 +251,17 @@ function ProductModal({ product, categories, onClose, onSaved }) {
       formData.append("ref", ref);
       formData.append("category", category);
       formData.append("description", description);
-      formData.append("status", status);
-      formData.append("quantity", quantity);
-      formData.append("costPrice", costPrice || 0);
-      formData.append("sellingPrice", sellingPrice || 0);
-      files.forEach((f) => formData.append("images", f));
+      // When editing, only send the numbers/status the person actually changed.
+      // Otherwise saving a simple name fix would overwrite live stock (which
+      // Sales and Purchases keep updating) with the stale figure this form
+      // loaded with.
+      const changed = (current, original) => isNew || String(current) !== String(original ?? "");
+      if (changed(status, product.status)) formData.append("status", status);
+      if (changed(quantity, product.quantity ?? 0)) formData.append("quantity", quantity);
+      if (changed(costPrice, product.costPrice ?? "")) formData.append("costPrice", costPrice || 0);
+      if (changed(sellingPrice, product.sellingPrice ?? "")) formData.append("sellingPrice", sellingPrice || 0);
+      photoChanges.newFiles.forEach((f) => formData.append("images", f));
+      if (photoChanges.removedUrls.length) formData.append("removeImages", JSON.stringify(photoChanges.removedUrls));
 
       if (isNew) {
         await api.createProduct(formData);
@@ -242,19 +298,19 @@ function ProductModal({ product, categories, onClose, onSaved }) {
           </Field>
           <div className="grid grid-cols-3 gap-3">
             <Field label="Stock quantity"><input type="number" min="0" value={quantity} onChange={(e) => setQuantity(e.target.value)} style={inputStyle} /></Field>
-            <Field label="Cost price (₦)"><input type="number" min="0" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} style={inputStyle} /></Field>
+            {isOwner && <Field label="Cost price (₦)"><input type="number" min="0" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} style={inputStyle} /></Field>}
             <Field label="Selling price (₦)"><input type="number" min="0" value={sellingPrice} onChange={(e) => setSellingPrice(e.target.value)} style={inputStyle} /></Field>
           </div>
           <p className="text-xs -mt-2" style={{ color: "#8A877D" }}>
-            Quantity updates automatically from Purchases and Sales going forward — set it here only for the initial stock count.
+            Quantity updates automatically from Purchases and Sales — only change it here to correct a counting mistake.
           </p>
           <Field label="Status">
             <select value={status} onChange={(e) => setStatus(e.target.value)} style={inputStyle}>
               {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </Field>
-          <Field label={isNew ? "Photos" : "Add more photos (optional)"}>
-            <input type="file" accept="image/*" multiple onChange={(e) => setFiles(Array.from(e.target.files))} className="text-sm" />
+          <Field label="Photos">
+            <PhotoPicker existing={product?.images || []} max={8} onChange={setPhotoChanges} />
           </Field>
 
           {error && <p className="text-sm" style={{ color: C.red }}>{error}</p>}

@@ -3,6 +3,7 @@ import { Plus, Pencil, Trash2, X, MapPin } from "lucide-react";
 import { api } from "../api";
 import { C } from "../tokens";
 import Layout from "../components/Layout";
+import PhotoPicker from "../components/PhotoPicker";
 import { PageHeader, Button, Card, Field, inputStyle, Loading, EmptyState, ErrorBanner } from "../components/ui";
 
 export default function Projects() {
@@ -78,7 +79,7 @@ function ProjectModal({ project, onClose, onSaved }) {
   const [name, setName] = useState(project.name || "");
   const [location, setLocation] = useState(project.location || "");
   const [tag, setTag] = useState(project.tag || "");
-  const [files, setFiles] = useState([]);
+  const [photoChanges, setPhotoChanges] = useState({ removedUrls: [], newFiles: [] });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -95,7 +96,8 @@ function ProjectModal({ project, onClose, onSaved }) {
       formData.append("name", name);
       formData.append("location", location);
       formData.append("tag", tag);
-      files.forEach((f) => formData.append("images", f));
+      photoChanges.newFiles.forEach((f) => formData.append("images", f));
+      if (photoChanges.removedUrls.length) formData.append("removeImages", JSON.stringify(photoChanges.removedUrls));
 
       if (isNew) await api.createProject(formData);
       else await api.updateProject(project._id, formData);
@@ -118,8 +120,8 @@ function ProjectModal({ project, onClose, onSaved }) {
           <Field label="Project name"><input value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} /></Field>
           <Field label="Location"><input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Suleja, Niger State" style={inputStyle} /></Field>
           <Field label="Tag (optional)"><input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="e.g. Windows & doors" style={inputStyle} /></Field>
-          <Field label={isNew ? "Photos" : "Add more photos (optional)"}>
-            <input type="file" accept="image/*" multiple onChange={(e) => setFiles(Array.from(e.target.files))} className="text-sm" />
+          <Field label="Photos">
+            <PhotoPicker existing={project?.images || []} max={12} onChange={setPhotoChanges} />
           </Field>
           {error && <p className="text-sm" style={{ color: C.red }}>{error}</p>}
           <div className="flex gap-3 pt-2">

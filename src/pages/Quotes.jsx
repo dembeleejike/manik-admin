@@ -1,19 +1,50 @@
 import React, { useEffect, useState } from "react";
-import { Phone, Trash2, ShoppingCart, X } from "lucide-react";
+import { Phone, Trash2, ShoppingCart, X, FileText } from "lucide-react";
+import { Link } from "react-router-dom";
 import { api } from "../api";
 import { C } from "../tokens";
 import Layout from "../components/Layout";
-import { PageHeader, Button, Card, Badge, Field, inputStyle, Loading, EmptyState, ErrorBanner, ExplainerBox, SearchInput } from "../components/ui";
+import { PageHeader, Button, Card, Badge, Field, inputStyle, Loading, EmptyState, ErrorBanner, ExplainerBox } from "../components/ui";
+import { useListView, FilterBar, ExportMenu } from "../components/Filters";
 
 const STATUS_TONE = { New: "red", Contacted: "default", Closed: "green" };
+
+const QUOTES_CFG = {
+  dateField: "createdAt",
+  search: (q) => [q.name, q.phone, q.product, q.location, q.notes, q.requestType, q.quantity].join(" "),
+  filters: [
+    { key: "status", label: "Status", get: (q) => q.status, options: ["New", "Contacted", "Closed"] },
+    { key: "type", label: "Request type", get: (q) => q.requestType },
+    { key: "product", label: "Product", get: (q) => q.product || "" },
+  ],
+  sorts: [
+    { key: "date", label: "Date received", get: (q) => new Date(q.createdAt) },
+    { key: "name", label: "Name", get: (q) => q.name },
+    { key: "status", label: "Status", get: (q) => q.status },
+    { key: "product", label: "Product", get: (q) => q.product || "" },
+  ],
+  defaultSort: "date",
+  defaultDir: "desc",
+};
+
+const QUOTES_COLUMNS = [
+  { label: "Received", get: (q) => q.createdAt, type: "date" },
+  { label: "Name", get: (q) => q.name },
+  { label: "Phone", get: (q) => q.phone },
+  { label: "Request type", get: (q) => q.requestType },
+  { label: "Product", get: (q) => q.product },
+  { label: "Quantity", get: (q) => q.quantity },
+  { label: "Location", get: (q) => q.location },
+  { label: "Preferred contact", get: (q) => q.preferredContact },
+  { label: "Status", get: (q) => q.status },
+  { label: "Notes", get: (q) => q.notes },
+];
 
 export default function Quotes() {
   const [quotes, setQuotes] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [filter, setFilter] = useState("All");
-  const [search, setSearch] = useState("");
   const [converting, setConverting] = useState(null);
 
   async function load() {
@@ -50,45 +81,29 @@ export default function Quotes() {
     }
   }
 
-  const statusFiltered = filter === "All" ? quotes : quotes.filter((q) => q.status === filter);
-  const term = search.trim().toLowerCase();
-  const filtered = !term ? statusFiltered : statusFiltered.filter(q =>
-    q.name.toLowerCase().includes(term) ||
-    (q.product || "").toLowerCase().includes(term) ||
-    q.phone.includes(term) ||
-    (q.location || "").toLowerCase().includes(term) ||
-    new Date(q.createdAt).toLocaleDateString().includes(term)
-  );
+  const view = useListView(quotes, QUOTES_CFG);
+  const filtered = view.rows;
 
   return (
     <Layout>
       <PageHeader title="Quote requests — Customers asking about prices" />
       <ExplainerBox>
-        When someone fills the "Request a Quote" form on your website, it appears here. Call or WhatsApp them back, then mark it Contacted. If they buy, tap "Convert to sale" so it's properly recorded.
+        When someone fills the "Request a Quote" form on your website, it appears here. Call or WhatsApp them back, then mark it Contacted. Need to give them a price first? Tap "Create quotation (PDF)". If they buy straight away, tap "Convert to sale" so it's properly recorded.
       </ExplainerBox>
       <ErrorBanner message={error} />
 
-      <div className="mb-4"><SearchInput value={search} onChange={setSearch} placeholder="Search name, product, phone, location..." /></div>
-      <div className="flex gap-2 mb-5">
-        {["All", "New", "Contacted", "Closed"].map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className="text-xs uppercase tracking-wide px-3 py-1.5"
-            style={{
-              border: `1px solid ${filter === f ? C.safety : "#C9C5BA"}`,
-              color: filter === f ? C.safety : "#6B6960",
-            }}
-          >
-            {f}
-          </button>
-        ))}
-      </div>
+      {!loading && quotes.length > 0 && (
+        <FilterBar
+          view={view} cfg={QUOTES_CFG} items={quotes}
+          placeholder="Search name, product, phone, location…"
+          actions={<ExportMenu rows={view.rows} columns={QUOTES_COLUMNS} filename="manik-quotes" sheetName="Quote requests" title="MANIK quote requests" />}
+        />
+      )}
 
       {loading ? (
         <Loading />
       ) : filtered.length === 0 ? (
-        <EmptyState message="No quote requests here yet." />
+        <EmptyState message={quotes.length === 0 ? "No quote requests yet." : "No quote requests match these filters."} />
       ) : (
         <div className="space-y-3">
           {filtered.map((q) => (
@@ -119,6 +134,11 @@ export default function Quotes() {
                     <option>Contacted</option>
                     <option>Closed</option>
                   </select>
+                  {q.status !== "Closed" && (
+                    <Link to={`/quotations?fromQuote=${q._id}`} className="text-xs flex items-center gap-1" style={{ color: C.blueprint }}>
+                      <FileText size={12} /> Create quotation (PDF)
+                    </Link>
+                  )}
                   {q.status !== "Closed" && (
                     <button onClick={() => setConverting(q)} className="text-xs flex items-center gap-1" style={{ color: C.blueprint }}>
                       <ShoppingCart size={12} /> Convert to sale

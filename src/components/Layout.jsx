@@ -1,32 +1,38 @@
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { LayoutGrid, Package, MessageSquare, Image, Users, Settings as SettingsIcon, ShoppingCart, TrendingUp, Receipt, BarChart3, UserCircle, LogOut, Menu, X } from "lucide-react";
+import { ClipboardCheck, FileText, History, HelpCircle, KeyRound, LayoutGrid, Package, MessageSquare, Image, Users, Settings as SettingsIcon, ShoppingCart, TrendingUp, Receipt, BarChart3, UserCircle, LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "../AuthContext";
 import { C } from "../tokens";
+import ChangePasswordModal from "./ChangePasswordModal";
 
 const NAV = [
   { to: "/", label: "Overview", icon: LayoutGrid, end: true },
   { to: "/products", label: "Products", icon: Package },
   { to: "/quotes", label: "Quote requests", icon: MessageSquare },
+  { to: "/quotations", label: "Quotations", icon: FileText },
   { to: "/sales", label: "Sales", icon: ShoppingCart },
   { to: "/purchases", label: "Purchases", icon: TrendingUp },
+  { to: "/stocktake", label: "Stock count", icon: ClipboardCheck },
   { to: "/expenses", label: "Expenses", icon: Receipt, ownerOnly: true },
   { to: "/customers", label: "Customers", icon: UserCircle, ownerOnly: true },
   { to: "/reports", label: "Reports", icon: BarChart3, ownerOnly: true },
   { to: "/projects", label: "Projects", icon: Image },
   { to: "/settings", label: "Business Settings", icon: SettingsIcon, ownerOnly: true },
   { to: "/admins", label: "Admins", icon: Users, ownerOnly: true },
+  { to: "/activity", label: "Activity log", icon: History, ownerOnly: true },
+  { to: "/help", label: "Help", icon: HelpCircle },
 ];
 
 export default function Layout({ children }) {
   const { admin, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [showPassword, setShowPassword] = React.useState(false);
   const isOwner = admin?.role === "owner";
   const visibleNav = NAV.filter(item => !item.ownerOnly || isOwner);
 
-  function handleLogout() {
-    logout();
+  async function handleLogout() {
+    await logout();
     navigate("/login");
   }
 
@@ -63,8 +69,11 @@ export default function Layout({ children }) {
         </div>
         {navItems}
         <div className="px-5 py-4" style={{ borderTop: `1px solid ${C.steelLine}` }}>
-          <p className="text-xs mb-1 truncate" style={{ color: "#8A8F94" }}>{admin?.email}</p>
+          <p className="text-xs mb-1 truncate" style={{ color: "#8A8F94" }}>{admin?.email || admin?.phone}</p>
           <p className="text-xs mb-2 uppercase tracking-wide" style={{ color: admin?.role === "owner" ? "#E2591F" : "#8A8F94" }}>{admin?.role}</p>
+          <button onClick={() => setShowPassword(true)} className="flex items-center gap-2 text-xs mb-2" style={{ color: "#B8BCC0" }}>
+            <KeyRound size={13} /> Change password
+          </button>
           <button onClick={handleLogout} className="flex items-center gap-2 text-xs" style={{ color: "#B8BCC0" }}>
             <LogOut size={13} /> Log out
           </button>
@@ -85,8 +94,11 @@ export default function Layout({ children }) {
         <div className="md:hidden fixed inset-0 z-30 pt-14" style={{ background: C.steel }}>
           {navItems}
           <div className="px-5 py-4" style={{ borderTop: `1px solid ${C.steelLine}` }}>
-            <p className="text-xs mb-1 truncate" style={{ color: "#8A8F94" }}>{admin?.email}</p>
+            <p className="text-xs mb-1 truncate" style={{ color: "#8A8F94" }}>{admin?.email || admin?.phone}</p>
           <p className="text-xs mb-2 uppercase tracking-wide" style={{ color: admin?.role === "owner" ? "#E2591F" : "#8A8F94" }}>{admin?.role}</p>
+            <button onClick={() => { setMobileOpen(false); setShowPassword(true); }} className="flex items-center gap-2 text-xs mb-2" style={{ color: "#B8BCC0" }}>
+              <KeyRound size={13} /> Change password
+            </button>
             <button onClick={handleLogout} className="flex items-center gap-2 text-xs" style={{ color: "#B8BCC0" }}>
               <LogOut size={13} /> Log out
             </button>
@@ -97,6 +109,7 @@ export default function Layout({ children }) {
       <main className="flex-1 min-w-0 pt-14 md:pt-0">
         <div className="p-5 md:p-8 max-w-5xl mx-auto">{children}</div>
       </main>
+      {showPassword && <ChangePasswordModal onClose={() => setShowPassword(false)} />}
     </div>
   );
 }
