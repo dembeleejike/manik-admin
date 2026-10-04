@@ -1,10 +1,10 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Download, Mail, Upload, Share2, FileSpreadsheet, ShieldCheck } from "lucide-react";
 import { api } from "../api";
 import { C } from "../tokens";
 import { Button, Card, Field, inputStyle } from "./ui";
 import { useAuth } from "../AuthContext";
-import { downloadBlob, shareFile } from "../utils/files";
+import { downloadBlob, shareFile, shareSupport } from "../utils/files";
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const DATASETS = [
@@ -52,7 +52,11 @@ export default function BackupCard() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const dated = DATASETS.find(([k]) => k === dataset)?.[2];
+  const support = useMemo(() => shareSupport(), []);
   const effectiveFormat = dataset === "all" ? "xlsx" : format;
+  // What the Share button can really share on this device: Excel if the browser allows it,
+  // otherwise a CSV (which opens in Excel / Sheets). "Everything" only exists as Excel.
+  const shareChoice = support.xlsx ? "xlsx" : dataset !== "all" && support.csv ? "csv" : null;
 
   const sheetPath = () => {
     const q = dated && (from || to) ? `?${[from && `from=${from}`, to && `to=${to}`].filter(Boolean).join("&")}` : "";
@@ -174,17 +178,22 @@ export default function BackupCard() {
             onClick={() => run("sheet", async () => { await api.downloadFile(sheetPath(), sheetName()); setMessage("Spreadsheet downloaded."); })}>
             {busy === "sheet" ? "Preparing…" : "Download"}
           </Button>
-          {typeof navigator !== "undefined" && navigator.share && (
+          {shareChoice && (
             <Button type="button" variant="ghost" icon={Share2} disabled={!!busy}
               onClick={() => run("share", async () => {
-                const blob = await api.fetchBlob(sheetPath());
-                const file = new File([blob], sheetName(), { type: effectiveFormat === "xlsx" ? XLSX_MIME : "text/csv" });
-                if (!(await shareFile(file, "MANIK records"))) { downloadBlob(blob, sheetName()); setMessage("Sharing isn't available here, so it was downloaded instead."); }
+                const path = `/api/export/${dataset}.${shareChoice}${dated && (from || to) ? `?${[from && `from=${from}`, to && `to=${to}`].filter(Boolean).join("&")}` : ""}`;
+                const name = `manik-${dataset}-${stamp()}.${shareChoice}`;
+                const blob = await api.fetchBlob(path);
+                const file = new File([blob], name, { type: shareChoice === "xlsx" ? XLSX_MIME : "text/csv" });
+                if (!(await shareFile(file, "MANIK records"))) { downloadBlob(blob, name); setMessage("The share sheet couldn't open, so the file was downloaded instead."); }
               })}>
-              {busy === "share" ? "Preparing…" : "Share…"}
+              {busy === "share" ? "Preparing…" : `Share${shareChoice === "csv" ? " (CSV)" : ""}…`}
             </Button>
           )}
         </div>
+        {!shareChoice && support.csv && dataset === "all" && (
+          <p className="text-xs mt-2" style={{ color: "#8A877D" }}>Your browser can't share Excel files directly — use Download, then attach the file. Pick a single table to get a Share (CSV) button.</p>
+        )}
         <p className="text-xs mt-2" style={{ color: "#8A877D" }}>
           On every list page (Sales, Purchases, Expenses, Customers…) you can also export exactly what you've searched or filtered.
         </p>

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Download, Share2, X, ArrowUp, ArrowDown, FileSpreadsheet } from "lucide-react";
 import { C } from "../tokens";
-import { makeTableFile, downloadFile, shareFile } from "../utils/files";
+import { makeTableFile, downloadFile, shareFile, shareSupport } from "../utils/files";
 
 /* ---------------------------------------------------------------
    Shared search / filter / sort / export tools for every list.
@@ -220,7 +220,10 @@ export function FilterBar({ view, cfg, items, placeholder, actions }) {
 export function ExportMenu({ rows, columns, filename, sheetName, title }) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
-  const canShare = typeof navigator !== "undefined" && !!navigator.share;
+  // Share only appears when this device can really share a file; Excel files can't be
+  // shared by Chrome, so there it shares the CSV (which opens in Excel / Sheets).
+  const support = useMemo(() => shareSupport(), []);
+  const shareFormat = support.xlsx ? "xlsx" : support.csv ? "csv" : null;
   const disabled = rows.length === 0;
 
   const build = (format) => makeTableFile({ format, filename, sheetName: sheetName || title, columns, rows });
@@ -229,7 +232,7 @@ export function ExportMenu({ rows, columns, filename, sheetName, title }) {
     setBusy(true);
     setNote("");
     try {
-      const file = build("xlsx");
+      const file = build(shareFormat);
       const shared = await shareFile(file, title || filename);
       if (!shared) { downloadFile(file); setNote("Sharing isn't available here, so the file was downloaded instead."); }
     } finally {
@@ -245,7 +248,7 @@ export function ExportMenu({ rows, columns, filename, sheetName, title }) {
     <div className="flex flex-wrap items-center gap-2">
       <button type="button" disabled={disabled} onClick={() => downloadFile(build("xlsx"))} style={btn}><FileSpreadsheet size={13} /> Excel</button>
       <button type="button" disabled={disabled} onClick={() => downloadFile(build("csv"))} style={btn}><Download size={13} /> CSV</button>
-      {canShare && <button type="button" disabled={disabled || busy} onClick={handleShare} style={btn}><Share2 size={13} /> Share</button>}
+      {shareFormat && <button type="button" disabled={disabled || busy} onClick={handleShare} style={btn}><Share2 size={13} /> Share{shareFormat === "csv" ? " (CSV)" : ""}</button>}
       {note && <span className="text-xs" style={{ color: "#6B6960" }}>{note}</span>}
     </div>
   );

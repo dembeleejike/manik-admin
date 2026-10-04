@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Download, Share2, MessageCircle } from "lucide-react";
 import { C } from "../tokens";
-import { downloadFile, shareFile, makePdfFile, whatsAppLink } from "../utils/files";
+import { downloadFile, shareFile, makePdfFile, whatsAppLink, shareSupport } from "../utils/files";
 
 // Buttons for any PDF document: download, share (phones), and a WhatsApp message.
 //   build():   returns the PDF bytes (called only when a button is pressed)
@@ -10,7 +10,7 @@ import { downloadFile, shareFile, makePdfFile, whatsAppLink } from "../utils/fil
 export default function PdfActions({ build, filename, title, whatsapp, size = "normal" }) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
-  const canShare = typeof navigator !== "undefined" && !!navigator.share;
+  const canShare = useMemo(() => shareSupport().pdf, []);
 
   const btn = {
     border: `1px solid ${C.ink}33`, background: "transparent", color: C.ink,

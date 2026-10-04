@@ -1,6 +1,6 @@
 import { buildWorkbook, buildCsv } from "./xlsx";
 
-const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+export const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 // The browser's own timezone offset, so a sale made late in the evening lands
 // on the right calendar day in the spreadsheet.
@@ -32,11 +32,31 @@ export function downloadFile(file) {
   downloadBlob(file, file.name);
 }
 
+// Can this device/browser share this kind of file? Browsers only allow sharing
+// certain file types: Chrome (Android and desktop) accepts pictures, PDF, CSV and
+// text but NOT Excel (.xlsx); Safari on iPhone accepts Excel too. Asking the
+// browser first means we only show a Share button that will really open the
+// share sheet — never one that silently just downloads.
+export function canShareFile(file) {
+  try {
+    return typeof navigator !== "undefined" && typeof navigator.share === "function" && typeof navigator.canShare === "function" && !!navigator.canShare({ files: [file] });
+  } catch {
+    return false;
+  }
+}
+
+export function shareSupport() {
+  return {
+    xlsx: canShareFile(new File(["x"], "test.xlsx", { type: XLSX_MIME })),
+    csv: canShareFile(new File(["x"], "test.csv", { type: "text/csv" })),
+    pdf: canShareFile(new File(["x"], "test.pdf", { type: "application/pdf" })),
+  };
+}
+
 // Opens the phone's share sheet (WhatsApp, email, Drive...) with the file.
-// Returns false when this device/browser can't share files, so the caller can
-// fall back to a normal download.
+// Returns false when sharing didn't open, so the caller can fall back to a download.
 export async function shareFile(file, title) {
-  if (typeof navigator !== "undefined" && navigator.canShare && navigator.canShare({ files: [file] })) {
+  if (canShareFile(file)) {
     try {
       await navigator.share({ files: [file], title });
       return true;
