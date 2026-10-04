@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { Download, Mail, Upload, Share2, FileSpreadsheet, ShieldCheck } from "lucide-react";
 import { api } from "../api";
 import { C } from "../tokens";
-import { Button, Card, inputStyle } from "./ui";
+import { Button, Card, Field, inputStyle } from "./ui";
+import { useAuth } from "../AuthContext";
 import { downloadBlob, shareFile } from "../utils/files";
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -30,6 +31,11 @@ function Section({ icon: Icon, title, children }) {
 }
 
 export default function BackupCard() {
+  const { admin } = useAuth();
+  // ----- email a backup -----
+  const [showMail, setShowMail] = useState(false);
+  const [mailTo, setMailTo] = useState(admin?.email || "");
+  const [mailPassword, setMailPassword] = useState("");
   // ----- backup -----
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
@@ -105,13 +111,40 @@ export default function BackupCard() {
             onClick={() => run("dl", async () => { await api.downloadFile("/api/export/backup", `manik-backup-${stamp()}.json`); setMessage("Backup downloaded. Keep it somewhere safe."); })}>
             {busy === "dl" ? "Preparing…" : "Download full backup"}
           </Button>
-          <Button type="button" variant="ghost" icon={Mail} disabled={!!busy}
-            onClick={() => run("mail", async () => { const r = await api.emailBackup(); setMessage(r.message); })}>
-            {busy === "mail" ? "Sending…" : "Email me a backup now"}
+          <Button type="button" variant="ghost" icon={Mail} disabled={!!busy} onClick={() => { setShowMail((v) => !v); setError(""); setMessage(""); }}>
+            Email a backup…
           </Button>
         </div>
+
+        {showMail && (
+          <form
+            className="mt-3 p-4 space-y-3"
+            style={{ background: "white", border: "1px solid #C9C5BA" }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              run("mail", async () => {
+                const r = await api.emailBackup(mailTo, mailPassword);
+                setMessage(r.message);
+                setMailPassword("");
+                setShowMail(false);
+              });
+            }}
+          >
+            <Field label="Send the backup to this email address">
+              <input type="email" value={mailTo} onChange={(e) => setMailTo(e.target.value)} placeholder="your-email@example.com" required autoComplete="email" style={inputStyle} />
+            </Field>
+            <Field label="Your password (to confirm it's you)">
+              <input type="password" value={mailPassword} onChange={(e) => setMailPassword(e.target.value)} required autoComplete="current-password" style={inputStyle} />
+            </Field>
+            <div className="flex gap-3">
+              <Button type="submit" disabled={!!busy}>{busy === "mail" ? "Sending…" : "Send backup"}</Button>
+              <Button type="button" variant="ghost" onClick={() => setShowMail(false)}>Cancel</Button>
+            </div>
+          </form>
+        )}
+
         <p className="text-xs mt-2" style={{ color: "#8A877D" }}>
-          The email has two files: the backup (.json, used to restore) and an Excel copy you can read. Backups contain private customer and money records — don't forward them.
+          The email has two files: the backup (.json, used to restore) and an Excel copy you can read. Backups contain private customer and money records — only send them to an address you control, and don't forward them. The nightly backup is emailed to every owner account's email.
         </p>
       </Section>
 

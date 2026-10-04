@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Package, MessageSquare, Image, AlertCircle, AlertTriangle, Wallet, TrendingUp, FileText } from "lucide-react";
+import { Package, MessageSquare, AlertCircle, AlertTriangle, Wallet, TrendingUp, FileText } from "lucide-react";
 import { api } from "../api";
 import { C } from "../tokens";
 import Layout from "../components/Layout";

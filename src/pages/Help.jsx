@@ -61,7 +61,7 @@ export default function Help() {
       {isOwner && (
         <Topic title="Backup and restore">
           <p>A full backup is made automatically every night: it is stored privately online and emailed to the owner (a .json file for restoring, and an Excel copy for reading).</p>
-          <p>In <em>Business Settings</em> you can also <strong>download a backup</strong> or <strong>email one to yourself right now</strong>.</p>
+          <p>In <em>Business Settings</em> you can also <strong>download a backup</strong> or <strong>email one</strong>: type the email address to send it to and your password to confirm it's you. The nightly backup goes to every owner account's email.</p>
           <p><strong>To restore:</strong> choose a backup .json file. You'll see exactly how many records will be updated or brought back, and nothing happens until you tick the box and press Restore. A restore never deletes anything you added after the backup, and a safety copy of your current data is emailed first. Logins (admins and passwords) are never part of backups.</p>
         </Topic>
       )}

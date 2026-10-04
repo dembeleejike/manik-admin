@@ -117,7 +117,7 @@ export const api = {
   },
 
   // backup & restore & activity log (owner only)
-  emailBackup: () => request("/api/export/email-backup", { method: "POST", body: "{}" }),
+  emailBackup: (email, password) => request("/api/export/email-backup", { method: "POST", body: JSON.stringify({ email, password }) }),
   restoreBackup: (backup, dryRun) =>
     request("/api/restore", { method: "POST", body: JSON.stringify({ backup, dryRun: !!dryRun }) }),
   listAudit: (limit = 500) => request(`/api/audit?limit=${limit}`),
