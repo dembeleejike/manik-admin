@@ -7,6 +7,8 @@ import { PageHeader, Button, Card, Badge, Field, inputStyle, Loading, EmptyState
 import { useListView, FilterBar, ExportMenu } from "../components/Filters";
 import { useAuth } from "../AuthContext";
 import PhotoPicker from "../components/PhotoPicker";
+import useLocations from "../components/useLocations";
+import { whereText, defaultLocationId } from "../utils/stockPlaces";
 
 const STATUS_OPTIONS = ["In stock", "Low stock", "Made to order", "Out of stock"];
 
@@ -36,7 +38,7 @@ const PRODUCTS_COLUMNS_ALL = [
   { label: "Name", get: (p) => p.name },
   { label: "Category", get: (p) => p.category?.name || "" },
   { label: "Status", get: (p) => p.status },
-  { label: "Stock quantity", get: (p) => p.quantity ?? 0, type: "number" },
+  { label: "Total on hand", get: (p) => p.quantity ?? 0, type: "number" },
   { label: "Cost price", get: (p) => p.costPrice, type: "money" },
   { label: "Selling price", get: (p) => p.sellingPrice, type: "money" },
   { label: "Added", get: (p) => p.createdAt, type: "date" },
@@ -51,7 +53,8 @@ export default function Products() {
   const [showCategories, setShowCategories] = useState(false);
   const view = useListView(products, PRODUCTS_CFG);
   const { admin } = useAuth();
-  const isOwner = admin?.role === "owner";
+  const { locations } = useLocations();
+  const isOwner = admin?.isOwner;
   // What the shop pays for stock is owner-only, so staff exports leave it out.
   const productColumns = isOwner ? PRODUCTS_COLUMNS_ALL : PRODUCTS_COLUMNS_ALL.filter((c) => c.label !== "Cost price");
 
@@ -124,6 +127,7 @@ export default function Products() {
                     <p className="text-xs" style={{ color: C.blueprint }}>{p.ref}</p>
                     <p className="font-semibold truncate" style={{ color: C.ink }}>{p.name}</p>
                     <p className="text-xs mt-0.5" style={{ color: "#6B6960" }}>{p.category?.name || "Uncategorized"} · {p.quantity ?? 0} in stock</p>
+                    {(p.quantity ?? 0) > 0 && <p className="text-xs mt-0.5" style={{ color: "#8A877D" }}>{whereText(p, locations)}</p>}
                   </div>
                   <Badge tone={p.status === "In stock" ? "green" : p.status === "Out of stock" ? "red" : "default"}>
                     {p.status}
@@ -185,6 +189,17 @@ function CategoriesModal({ categories, onClose, onChanged }) {
     }
   }
 
+  async function handleRename(c) {
+    const next = prompt("New name for this category:", c.name);
+    if (next === null || !next.trim() || next.trim() === c.name) return;
+    try {
+      await api.updateCategory(c._id, next.trim());
+      onChanged();
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+
   async function handleDelete(id) {
     if (!confirm("Delete this category? A category that still has products in it can't be deleted.")) return;
     try {
@@ -208,7 +223,10 @@ function CategoriesModal({ categories, onClose, onChanged }) {
           {categories.map((c) => (
             <div key={c._id} className="flex items-center justify-between text-sm px-3 py-2" style={{ background: "white", border: "1px solid #C9C5BA" }}>
               <span style={{ color: C.ink }}>{c.name}</span>
-              <button onClick={() => handleDelete(c._id)}><Trash2 size={13} color={C.red} /></button>
+              <span className="flex items-center gap-3">
+                <button onClick={() => handleRename(c)} aria-label={`Rename ${c.name}`} title="Rename"><Pencil size={13} color={C.blueprint} /></button>
+                <button onClick={() => handleDelete(c._id)} aria-label={`Delete ${c.name}`} title="Delete"><Trash2 size={13} color={C.red} /></button>
+              </span>
             </div>
           ))}
         </div>
@@ -230,7 +248,9 @@ function ProductModal({ product, categories, onClose, onSaved, isOwner }) {
   const [category, setCategory] = useState(product.category?._id || categories[0]?._id || "");
   const [description, setDescription] = useState(product.description || "");
   const [status, setStatus] = useState(product.status || "In stock");
-  const [quantity, setQuantity] = useState(product.quantity ?? 0);
+  const { activeLocations, locations: allLocations } = useLocations();
+  const [quantity, setQuantity] = useState(""); // opening stock — only used when adding a new product
+  const [openingLocation, setOpeningLocation] = useState("");
   const [costPrice, setCostPrice] = useState(product.costPrice ?? "");
   const [sellingPrice, setSellingPrice] = useState(product.sellingPrice ?? "");
   const [photoChanges, setPhotoChanges] = useState({ removedUrls: [], newFiles: [] });
@@ -257,7 +277,10 @@ function ProductModal({ product, categories, onClose, onSaved, isOwner }) {
       // loaded with.
       const changed = (current, original) => isNew || String(current) !== String(original ?? "");
       if (changed(status, product.status)) formData.append("status", status);
-      if (changed(quantity, product.quantity ?? 0)) formData.append("quantity", quantity);
+      if (isNew && quantity !== "" && Number(quantity) > 0) {
+        formData.append("quantity", quantity);
+        formData.append("location", openingLocation || defaultLocationId(activeLocations, "receiving"));
+      }
       if (changed(costPrice, product.costPrice ?? "")) formData.append("costPrice", costPrice || 0);
       if (changed(sellingPrice, product.sellingPrice ?? "")) formData.append("sellingPrice", sellingPrice || 0);
       photoChanges.newFiles.forEach((f) => formData.append("images", f));
@@ -297,13 +320,27 @@ function ProductModal({ product, categories, onClose, onSaved, isOwner }) {
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} style={inputStyle} />
           </Field>
           <div className="grid grid-cols-3 gap-3">
-            <Field label="Stock quantity"><input type="number" min="0" value={quantity} onChange={(e) => setQuantity(e.target.value)} style={inputStyle} /></Field>
+            {isNew && <Field label="Opening stock"><input type="number" min="0" step="any" value={quantity} placeholder="0" onChange={(e) => setQuantity(e.target.value)} style={inputStyle} /></Field>}
             {isOwner && <Field label="Cost price (₦)"><input type="number" min="0" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} style={inputStyle} /></Field>}
             <Field label="Selling price (₦)"><input type="number" min="0" value={sellingPrice} onChange={(e) => setSellingPrice(e.target.value)} style={inputStyle} /></Field>
           </div>
-          <p className="text-xs -mt-2" style={{ color: "#8A877D" }}>
-            Quantity updates automatically from Purchases and Sales — only change it here to correct a counting mistake.
-          </p>
+          {isNew ? (
+            <div className="-mt-1">
+              {Number(quantity) > 0 && activeLocations.length > 1 && (
+                <Field label="Where is this opening stock?">
+                  <select value={openingLocation || defaultLocationId(activeLocations, "receiving")} onChange={(e) => setOpeningLocation(e.target.value)} style={inputStyle}>
+                    {activeLocations.map((l) => <option key={l._id} value={l._id}>{l.name}</option>)}
+                  </select>
+                </Field>
+              )}
+              <p className="text-xs mt-1" style={{ color: "#8A877D" }}>Opening stock is how many you already have on the shelf right now. After this, stock changes through Purchases, Sales, Moves and Stock counts.</p>
+            </div>
+          ) : (
+            <div className="p-3 -mt-1 text-sm" style={{ background: C.concreteD }}>
+              <p style={{ color: C.ink }}><strong>{product.quantity ?? 0}</strong> in total — {whereText(product, allLocations)}</p>
+              <p className="text-xs mt-1" style={{ color: "#6B6960" }}>To change stock, record a Purchase (stock in), a Sale, move it between places on the Stock on hand page, or do a Stock count. That way every change is recorded.</p>
+            </div>
+          )}
           <Field label="Status">
             <select value={status} onChange={(e) => setStatus(e.target.value)} style={inputStyle}>
               {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}

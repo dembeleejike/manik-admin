@@ -15,6 +15,10 @@ const esc = (v) =>
     .replace(/'/g, "&#39;");
 
 export function printReceipt(sale, settings) {
+  const returnedQty = sale.returnedQuantity || 0;
+  const returnedAmt = sale.returnedAmount || 0;
+  const refunded = sale.refundedAmount || 0;
+  const netTotal = sale.totalAmount - returnedAmt;
   const businessName = settings?.businessName || "MANIK";
   const tagline = settings?.tagline || "";
   const phone = settings?.phone || "";
@@ -59,7 +63,10 @@ export function printReceipt(sale, settings) {
     <tr><td class="label">Item</td><td class="right">${esc(sale.productName)}</td></tr>
     <tr><td class="label">Quantity</td><td class="right">${esc(sale.quantity)}</td></tr>
     <tr><td class="label">Unit Price</td><td class="right">₦${Number(sale.unitPrice).toLocaleString()}</td></tr>
-    <tr class="total-row"><td>Total</td><td class="right">₦${Number(sale.totalAmount).toLocaleString()}</td></tr>
+    ${returnedQty > 0 ? `<tr><td class="label">Sale total</td><td class="right">₦${Number(sale.totalAmount).toLocaleString()}</td></tr>
+    <tr><td class="label">Returned (${esc(returnedQty)})</td><td class="right">− ₦${Number(returnedAmt).toLocaleString()}</td></tr>` : ""}
+    <tr class="total-row"><td>${returnedQty > 0 ? "Net total" : "Total"}</td><td class="right">₦${Number(netTotal).toLocaleString()}</td></tr>
+    ${refunded > 0 ? `<tr><td class="label">Refunded</td><td class="right">₦${Number(refunded).toLocaleString()}</td></tr>` : ""}
     <tr><td class="label">Payment</td><td class="right">${esc(sale.paymentStatus)} (${esc(sale.paymentMethod)})</td></tr>
   </table>
   <div class="footer">Thank you for your patronage.</div>

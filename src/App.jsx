@@ -18,6 +18,7 @@ import Customers from "./pages/Customers";
 import Activity from "./pages/Activity";
 import Quotations from "./pages/Quotations";
 import Stocktake from "./pages/Stocktake";
+import Stock from "./pages/Stock";
 import Help from "./pages/Help";
 
 export default function App() {
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="/reports" element={<ProtectedRoute><OwnerRoute><Reports /></OwnerRoute></ProtectedRoute>} />
           <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><OwnerRoute><SettingsPage /></OwnerRoute></ProtectedRoute>} />
+          <Route path="/stock" element={<ProtectedRoute><Stock /></ProtectedRoute>} />
           <Route path="/stocktake" element={<ProtectedRoute><Stocktake /></ProtectedRoute>} />
           <Route path="/quotations" element={<ProtectedRoute><Quotations /></ProtectedRoute>} />
           <Route path="/activity" element={<ProtectedRoute><OwnerRoute><Activity /></OwnerRoute></ProtectedRoute>} />

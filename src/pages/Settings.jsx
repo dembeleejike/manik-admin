@@ -4,6 +4,7 @@ import { api } from "../api";
 import { C } from "../tokens";
 import Layout from "../components/Layout";
 import BackupCard from "../components/BackupCard";
+import LocationsCard from "../components/LocationsCard";
 import { prepareImage } from "../utils/images";
 import { PageHeader, Button, Card, Field, inputStyle, Loading, ErrorBanner, ExplainerBox } from "../components/ui";
 
@@ -170,6 +171,8 @@ export default function Settings() {
             </Button>
           </div>
         </Card>
+
+        <LocationsCard />
 
         <BackupCard />
 

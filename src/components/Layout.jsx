@@ -1,6 +1,7 @@
+import { roleLabel } from "../utils/roles";
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { ClipboardCheck, FileText, History, HelpCircle, KeyRound, LayoutGrid, Package, MessageSquare, Image, Users, Settings as SettingsIcon, ShoppingCart, TrendingUp, Receipt, BarChart3, UserCircle, LogOut, Menu, X } from "lucide-react";
+import { Boxes, ClipboardCheck, FileText, History, HelpCircle, KeyRound, LayoutGrid, Package, MessageSquare, Image, Users, Settings as SettingsIcon, ShoppingCart, TrendingUp, Receipt, BarChart3, UserCircle, LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "../AuthContext";
 import { C } from "../tokens";
 import ChangePasswordModal from "./ChangePasswordModal";
@@ -12,6 +13,7 @@ const NAV = [
   { to: "/quotations", label: "Quotations", icon: FileText },
   { to: "/sales", label: "Sales", icon: ShoppingCart },
   { to: "/purchases", label: "Purchases", icon: TrendingUp },
+  { to: "/stock", label: "Stock on hand", icon: Boxes },
   { to: "/stocktake", label: "Stock count", icon: ClipboardCheck },
   { to: "/expenses", label: "Expenses", icon: Receipt, ownerOnly: true },
   { to: "/customers", label: "Customers", icon: UserCircle, ownerOnly: true },
@@ -28,7 +30,7 @@ export default function Layout({ children }) {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
-  const isOwner = admin?.role === "owner";
+  const isOwner = admin?.isOwner;
   const visibleNav = NAV.filter(item => !item.ownerOnly || isOwner);
 
   async function handleLogout() {
@@ -70,7 +72,7 @@ export default function Layout({ children }) {
         {navItems}
         <div className="px-5 py-4" style={{ borderTop: `1px solid ${C.steelLine}` }}>
           <p className="text-xs mb-1 truncate" style={{ color: "#8A8F94" }}>{admin?.email || admin?.phone}</p>
-          <p className="text-xs mb-2 uppercase tracking-wide" style={{ color: admin?.role === "owner" ? "#E2591F" : "#8A8F94" }}>{admin?.role}</p>
+          <p className="text-xs mb-2 uppercase tracking-wide" style={{ color: admin?.isOwner ? "#E2591F" : "#8A8F94" }}>{roleLabel(admin?.role)}</p>
           <button onClick={() => setShowPassword(true)} className="flex items-center gap-2 text-xs mb-2" style={{ color: "#B8BCC0" }}>
             <KeyRound size={13} /> Change password
           </button>
@@ -95,7 +97,7 @@ export default function Layout({ children }) {
           {navItems}
           <div className="px-5 py-4" style={{ borderTop: `1px solid ${C.steelLine}` }}>
             <p className="text-xs mb-1 truncate" style={{ color: "#8A8F94" }}>{admin?.email || admin?.phone}</p>
-          <p className="text-xs mb-2 uppercase tracking-wide" style={{ color: admin?.role === "owner" ? "#E2591F" : "#8A8F94" }}>{admin?.role}</p>
+          <p className="text-xs mb-2 uppercase tracking-wide" style={{ color: admin?.isOwner ? "#E2591F" : "#8A8F94" }}>{roleLabel(admin?.role)}</p>
             <button onClick={() => { setMobileOpen(false); setShowPassword(true); }} className="flex items-center gap-2 text-xs mb-2" style={{ color: "#B8BCC0" }}>
               <KeyRound size={13} /> Change password
             </button>

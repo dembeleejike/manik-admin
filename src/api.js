@@ -52,6 +52,7 @@ export const api = {
   listAdmins: () => request("/api/auth/admins"),
   createAdmin: (payload) =>
     request("/api/auth/admins", { method: "POST", body: JSON.stringify(payload) }),
+  setAdminRole: (id, role) => request(`/api/auth/admins/${id}/role`, { method: "PUT", body: JSON.stringify({ role }) }),
   deleteAdmin: (id) => request(`/api/auth/admins/${id}`, { method: "DELETE" }),
   changePassword: (currentPassword, newPassword) =>
     request("/api/auth/password", { method: "PUT", body: JSON.stringify({ currentPassword, newPassword }) }),
@@ -61,6 +62,8 @@ export const api = {
   createSale: (payload) => request("/api/sales", { method: "POST", body: JSON.stringify(payload) }),
   deleteSale: (id) => request(`/api/sales/${id}`, { method: "DELETE" }),
   addPayment: (saleId, payload) => request(`/api/sales/${saleId}/payments`, { method: "POST", body: JSON.stringify(payload) }),
+  addReturn: (saleId, payload) => request(`/api/sales/${saleId}/returns`, { method: "POST", body: JSON.stringify(payload) }),
+  deleteReturn: (saleId, returnId) => request(`/api/sales/${saleId}/returns/${returnId}`, { method: "DELETE" }),
   deletePayment: (saleId, paymentId) => request(`/api/sales/${saleId}/payments/${paymentId}`, { method: "DELETE" }),
 
   // quotations
@@ -70,6 +73,13 @@ export const api = {
   setQuotationStatus: (id, status) => request(`/api/quotations/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) }),
   deleteQuotation: (id) => request(`/api/quotations/${id}`, { method: "DELETE" }),
   convertQuotation: (id, payload) => request(`/api/quotations/${id}/convert`, { method: "POST", body: JSON.stringify(payload) }),
+
+  // stock locations & moves
+  listLocations: () => request("/api/locations"),
+  createLocation: (payload) => request("/api/locations", { method: "POST", body: JSON.stringify(payload) }),
+  updateLocation: (id, payload) => request(`/api/locations/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
+  listTransfers: () => request("/api/transfers?limit=1000"),
+  createTransfer: (payload) => request("/api/transfers", { method: "POST", body: JSON.stringify(payload) }),
 
   // stock counts
   listStockAdjustments: () => request("/api/stocktake?limit=1000"),
@@ -143,6 +153,7 @@ export const api = {
   listCategories: () => request("/api/categories"),
   createCategory: (name) =>
     request("/api/categories", { method: "POST", body: JSON.stringify({ name }) }),
+  updateCategory: (id, name) => request(`/api/categories/${id}`, { method: "PUT", body: JSON.stringify({ name }) }),
   deleteCategory: (id) => request(`/api/categories/${id}`, { method: "DELETE" }),
 
   // settings

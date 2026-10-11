@@ -184,10 +184,14 @@ export function buildSalePdf(sale, settings, kind = "invoice") {
   const doc = new Pdf({ title: `${isReceipt ? "Receipt" : "Invoice"} ${number}` });
   let y = letterhead(doc, settings, isReceipt ? "RECEIPT" : "INVOICE");
 
-  const total = sale.totalAmount ?? sale.quantity * sale.unitPrice;
-  const paid = sale.amountPaid || 0;
-  const owed = Math.max(0, total - paid);
-  const status = owed <= 0 ? "PAID" : paid > 0 ? "PART-PAID" : "UNPAID";
+  const gross = sale.totalAmount ?? sale.quantity * sale.unitPrice;
+  const returnedQty = sale.returnedQuantity || 0;
+  const returnedAmt = sale.returnedAmount || 0;
+  const refunded = sale.refundedAmount || 0;
+  const total = gross - returnedAmt; // what the customer kept
+  const paid = (sale.amountPaid || 0) - refunded;
+  const owed = Math.max(0, Math.round((total - paid) * 100) / 100);
+  const status = returnedQty >= sale.quantity - 0.00005 ? "RETURNED" : owed <= 0 ? "PAID" : paid > 0 ? "PART-PAID" : "UNPAID";
 
   const leftEnd = partyBlock(doc, M, y, W * 0.5, isReceipt ? "RECEIVED FROM" : "BILL TO", {
     name: sale.customerName || "Customer", phone: sale.customerPhone,
@@ -203,13 +207,21 @@ export function buildSalePdf(sale, settings, kind = "invoice") {
   y = table(doc, y, ITEM_COLUMNS, lineRows([{ description: sale.productName, quantity: sale.quantity, unitPrice: sale.unitPrice }]));
   const payments = (sale.payments || []).map((p) => ({ label: `Payment ${dateText(p.date)}`, value: money(p.amount) }));
   y = totalsBlock(doc, y + 10, [
-    { label: "TOTAL", value: money(total), big: true },
-    { label: "Amount paid", value: money(paid), color: GREEN, bold: true, rule: true },
+    ...(returnedQty > 0
+      ? [
+          { label: "Sale total", value: money(gross) },
+          { label: `Returned (${returnedQty})`, value: "- " + money(returnedAmt), color: RED },
+          { label: "NET TOTAL", value: money(total), big: true, rule: true },
+        ]
+      : [{ label: "TOTAL", value: money(total), big: true }]),
+    { label: refunded > 0 ? "Paid (after refunds)" : "Amount paid", value: money(paid), color: GREEN, bold: true, rule: true },
     ...(owed > 0 ? [{ label: "BALANCE DUE", value: money(owed), color: RED, big: true }] : []),
   ]);
   if (payments.length) {
     y = notesBlock(doc, y + 6, "PAYMENTS RECEIVED LATER", payments.map((p) => `${p.label}: ${p.value}`).join("\n"));
   }
+  const returnLines = (sale.returns || []).map((r) => `${dateText(r.date)}: ${r.quantity} returned, credit ${money(r.amount)}${r.refund ? `, refunded ${money(r.refund)}` : ""}${r.reason ? ` (${r.reason})` : ""}`);
+  if (returnLines.length) y = notesBlock(doc, y + 6, "RETURNS", returnLines.join("\n"));
   y = notesBlock(doc, y + 6, "NOTES", sale.notes);
   footers(doc, settings, isReceipt ? "Thank you for your payment." : "Please pay any balance due promptly. Thank you for your business.");
   return doc.output();
@@ -231,6 +243,10 @@ export function buildStatementPdf(customer, sales, settings, { from, to } = {}) 
     if (upfront > 0) entries.push({ date: new Date(s.date), desc: `Payment received (${s.paymentMethod || "Cash"})`, charge: 0, credit: upfront, order: 1 });
     for (const p of s.payments || []) {
       entries.push({ date: new Date(p.date), desc: `Payment received (${p.method || "Cash"}) — ${s.productName}`, charge: 0, credit: p.amount, order: 2 });
+    }
+    for (const r of s.returns || []) {
+      entries.push({ date: new Date(r.date), desc: `Returned ${r.quantity} × ${s.productName}`, charge: 0, credit: r.amount, order: 3 });
+      if (r.refund > 0) entries.push({ date: new Date(r.date), desc: `Refund paid (${r.refundMethod || "Cash"}) — ${s.productName}`, charge: r.refund, credit: 0, order: 4 });
     }
   }
   entries.sort((a, b) => a.date - b.date || a.order - b.order);
@@ -280,7 +296,7 @@ export function buildStatementPdf(customer, sales, settings, { from, to } = {}) 
   if (y > PAGE.height - 170) { doc.addPage(); y = 60; }
   y = totalsBlock(doc, y + 10, [
     { label: "Total charges", value: money(totalCharged) },
-    { label: "Total payments", value: money(totalPaid), color: GREEN },
+    { label: "Total payments & credits", value: money(totalPaid), color: GREEN },
     { label: closing > 0 ? "BALANCE DUE" : "BALANCE", value: money(closing), big: true, rule: true, color: closing > 0 ? RED : GREEN },
   ]);
   if (closing > 0) y = notesBlock(doc, y + 10, "PAYMENT", `Please settle the balance of ${money(closing)} at your earliest convenience.`);

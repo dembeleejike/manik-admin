@@ -1,3 +1,4 @@
+import { roleLabel } from "../utils/roles";
 import React, { useEffect, useState } from "react";
 import { api } from "../api";
 import { C } from "../tokens";
@@ -33,7 +34,7 @@ const CFG = {
 const COLUMNS = [
   { label: "When", get: (l) => l.at, type: "date" },
   { label: "Who", get: (l) => l.adminName },
-  { label: "Role", get: (l) => l.role },
+  { label: "Role", get: (l) => roleLabel(l.role) },
   { label: "Area", get: areaOf },
   { label: "What happened", get: (l) => l.summary },
 ];
@@ -78,7 +79,7 @@ function ActivityList({ logs }) {
                 <div>
                   <p className="text-sm" style={{ color: C.ink }}>{l.summary}</p>
                   <p className="text-xs mt-1" style={{ color: "#8A877D" }}>
-                    {l.adminName || "Unknown"}{l.role && l.role !== "system" ? ` (${l.role})` : ""} · {areaOf(l)}
+                    {l.adminName || "Unknown"}{l.role && l.role !== "system" ? ` (${roleLabel(l.role)})` : ""} · {areaOf(l)}
                   </p>
                 </div>
                 <div className="text-right">

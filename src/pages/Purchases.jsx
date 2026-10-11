@@ -6,6 +6,8 @@ import Layout from "../components/Layout";
 import { PageHeader, Button, Card, Field, inputStyle, Loading, EmptyState, ErrorBanner, ExplainerBox } from "../components/ui";
 import { useListView, FilterBar, ExportMenu } from "../components/Filters";
 import { useAuth } from "../AuthContext";
+import useLocations from "../components/useLocations";
+import { qtyAt, defaultLocationId } from "../utils/stockPlaces";
 
 function formatMoney(n) {
   return "₦" + Number(n || 0).toLocaleString();
@@ -53,7 +55,7 @@ export default function Purchases() {
       <ErrorBanner message={error} />
 
       {loading ? <Loading /> : (
-        <PurchasesList purchases={purchases} isOwner={admin?.role === "owner"} onDelete={handleDelete} />
+        <PurchasesList purchases={purchases} isOwner={admin?.isOwner} onDelete={handleDelete} />
       )}
 
       {showForm && <PurchaseModal products={products} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />}
@@ -67,6 +69,7 @@ const PURCHASES_CFG = {
   filters: [
     { key: "product", label: "Product", get: (p) => p.productName },
     { key: "supplier", label: "Supplier", get: (p) => p.supplier || "" },
+    { key: "location", label: "Delivered to", get: (p) => p.locationName || "" },
   ],
   sorts: [
     { key: "date", label: "Date", get: (p) => new Date(p.date) },
@@ -82,6 +85,7 @@ const PURCHASES_CFG = {
 const PURCHASES_COLUMNS_ALL = [
   { label: "Date", get: (p) => p.date, type: "date" },
   { label: "Product", get: (p) => p.productName },
+  { label: "Delivered to", get: (p) => p.locationName },
   { label: "Supplier", get: (p) => p.supplier },
   { label: "Invoice ref", get: (p) => p.invoiceRef },
   { label: "Quantity", get: (p) => p.quantity, type: "number" },
@@ -120,6 +124,7 @@ function PurchasesList({ purchases, isOwner, onDelete }) {
                     +{p.quantity} units{isOwner && <> @ {formatMoney(p.unitCost)} = <strong style={{ color: C.ink }}>{formatMoney(p.totalCost)}</strong></>}
                   </p>
                   {p.supplier && <p className="text-sm mt-1" style={{ color: "#6B6960" }}>Supplier: {p.supplier}</p>}
+                  {p.locationName && <p className="text-sm mt-1" style={{ color: "#6B6960" }}>Delivered to: {p.locationName}</p>}
                   <p className="text-xs mt-2" style={{ color: "#8A877D" }}>{new Date(p.date).toLocaleDateString()} {p.invoiceRef && `· Ref: ${p.invoiceRef}`}</p>
                 </div>
                 {isOwner && (
@@ -137,6 +142,8 @@ function PurchasesList({ purchases, isOwner, onDelete }) {
 }
 
 function PurchaseModal({ products, onClose, onSaved }) {
+  const { activeLocations } = useLocations();
+  const [locationId, setLocationId] = useState("");
   const [productId, setProductId] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unitCost, setUnitCost] = useState("");
@@ -144,6 +151,9 @@ function PurchaseModal({ products, onClose, onSaved }) {
   const [invoiceRef, setInvoiceRef] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const deliverTo = locationId || defaultLocationId(activeLocations, "receiving"); // the warehouse unless another place is chosen
+  const deliverToName = activeLocations.find((l) => l._id === deliverTo)?.name || "";
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -154,7 +164,7 @@ function PurchaseModal({ products, onClose, onSaved }) {
     setSaving(true);
     setError("");
     try {
-      await api.createPurchase({ product: productId, quantity: Number(quantity), unitCost: Number(unitCost), supplier, invoiceRef });
+      await api.createPurchase({ product: productId, location: deliverTo || undefined, quantity: Number(quantity), unitCost: Number(unitCost), supplier, invoiceRef });
       onSaved();
     } catch (err) {
       setError(err.message);
@@ -171,10 +181,17 @@ function PurchaseModal({ products, onClose, onSaved }) {
           <button onClick={onClose}><X size={18} color={C.ink} /></button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {activeLocations.length > 1 && (
+            <Field label="Delivered to">
+              <select value={deliverTo} onChange={e => setLocationId(e.target.value)} style={inputStyle}>
+                {activeLocations.map(l => <option key={l._id} value={l._id}>{l.name}</option>)}
+              </select>
+            </Field>
+          )}
           <Field label="Product">
             <select value={productId} onChange={e => setProductId(e.target.value)} style={inputStyle}>
               <option value="">Select a product</option>
-              {products.map(p => <option key={p._id} value={p._id}>{p.name} ({p.quantity} in stock)</option>)}
+              {products.map(p => <option key={p._id} value={p._id}>{p.name} ({qtyAt(p, deliverTo)} at {deliverToName || "there"} · {p.quantity ?? 0} total)</option>)}
             </select>
           </Field>
           <div className="grid grid-cols-2 gap-4">

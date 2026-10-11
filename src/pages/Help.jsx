@@ -15,7 +15,7 @@ function Topic({ title, children, open }) {
 
 export default function Help() {
   const { admin } = useAuth();
-  const isOwner = admin?.role === "owner";
+  const isOwner = admin?.isOwner;
   return (
     <Layout>
       <PageHeader title="Help — How to use this dashboard" />
@@ -34,12 +34,19 @@ export default function Help() {
       </Topic>
 
       <Topic title="Customers who pay later">
+        <p><strong>Customer brought goods back?</strong> Press <strong>Return</strong> on that sale. Choose how many, change the credit if you keep a fee, say how much money you hand back (or none), and whether the goods go back on the shelf and where. Stock, the customer's balance, reports and receipts all update by themselves.{isOwner ? " If a return was a mistake, press “undo” under it." : ""}</p>
         <p>On a sale that isn't fully paid, press <strong>Record payment</strong>. It can never go past the amount owed.{isOwner ? " If you record one by mistake, press “undo” under it." : ""}</p>
         <p>{isOwner ? "Open a customer to download their account statement (all charges, payments and the running balance) or send a polite payment reminder on WhatsApp. " : ""}The Overview page lists who owes the most.</p>
       </Topic>
 
+      <Topic title="Where your stock is (shop, warehouse…)">
+        <p>Every product's stock is kept <strong>per place</strong>. Goods you buy go to the <strong>warehouse</strong> by default (you can choose another place on each purchase). Sales take from the <strong>shop</strong> by default.</p>
+        <p>When some goods go to the shop, open <em>Stock on hand → Move stock</em>, pick where from and where to, add the products and quantities, and save. The total doesn't change — only where it is. If the shop doesn't have enough, the sale form tells you how many are elsewhere.</p>
+        <p><em>Stock on hand</em> shows the total for everything, each place, each category and every move made.{isOwner ? " The owner can add or rename places in Business Settings." : ""}</p>
+      </Topic>
+
       <Topic title="Stock count">
-        <p>Open <em>Stock count</em>, type what you actually counted for each product, and press <strong>Review &amp; save</strong>. You'll see every difference before confirming. Quantities are then set to your counts and the difference is recorded permanently under History.</p>
+        <p>Open <em>Stock count</em>. First choose <strong>which place</strong> you are counting (Shop or Warehouse) and <strong>which category</strong> (for example Glass). Type what you actually counted for each product and press <strong>Review &amp; save</strong>. You'll see every difference before confirming. Only that place and that category change; the difference is recorded permanently under History.</p>
       </Topic>
 
       <Topic title="Product and project photos">
@@ -66,8 +73,8 @@ export default function Help() {
         </Topic>
       )}
 
-      <Topic title="Owner and staff accounts">
-        <p><strong>Owner</strong> accounts see everything: reports, expenses, customers, what the shop paid for stock (cost prices), settings, the activity log, and can delete records. <strong>Staff</strong> accounts can handle products, quotations, sales, purchases, stock counts and projects, but never see cost prices or profit, and can't delete sales or purchases.</p>
+      <Topic title="Super admin, admin and staff accounts">
+        <p>There are three ranks. The <strong>Super admin</strong> is the business owner: exactly one person, set by the server settings, invisible to everyone below and untouchable by them. <strong>Admin</strong> accounts see everything: reports, expenses, customers, what the shop paid for stock (cost prices), settings, the activity log, can delete records, and can add, promote, demote and remove admins and staff (but never see or touch the super admin). <strong>Staff</strong> accounts can handle products, quotations, sales, purchases, stock counts and projects, but never see cost prices or profit, and can't delete sales or purchases.</p>
         {isOwner && <p>Add or remove logins in <em>Admins</em>. People sign in with an email address or a phone number. Everyone can change their own password from the sidebar.</p>}
       </Topic>
 
@@ -79,7 +86,7 @@ export default function Help() {
 
       <Topic title="If something looks wrong">
         <p>A stock number is off? Check <em>Purchases</em> and <em>Sales</em> for a missing or doubled entry — deleting a wrong entry puts the stock back. You can also correct the quantity directly by editing the product.</p>
-        <p>Can't sign in? Check the email or phone number, then ask an owner to add a new login. Too many wrong attempts will pause logins for a few minutes.</p>
+        <p>Can't sign in? Check the email or phone number, then ask an admin to add a new login. Too many wrong attempts will pause logins for a few minutes.</p>
       </Topic>
     </Layout>
   );

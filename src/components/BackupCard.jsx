@@ -9,11 +9,15 @@ import { downloadBlob, shareFile, shareSupport } from "../utils/files";
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const DATASETS = [
   ["all", "Everything (one Excel file, a sheet for each)", false],
+  ["stocklevels", "Stock by location (what is where)", false],
+  ["products", "Products & stock", false],
+  ["transfers", "Stock moves between places", true],
+  ["stockcounts", "Stock counts", true],
+  ["quotations", "Quotations", true],
   ["sales", "Sales", true],
   ["purchases", "Purchases", true],
   ["expenses", "Expenses", true],
   ["customers", "Customers", false],
-  ["products", "Products & stock", false],
   ["quotes", "Quote requests", true],
 ];
 

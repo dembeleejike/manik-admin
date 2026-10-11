@@ -10,6 +10,8 @@ import PdfActions from "../components/PdfActions";
 import { useAuth } from "../AuthContext";
 import { buildQuotationPdf } from "../utils/documents";
 import { naira } from "../utils/files";
+import useLocations from "../components/useLocations";
+import { defaultLocationId } from "../utils/stockPlaces";
 
 const STATUS_TONE = { Draft: "default", Sent: "default", Accepted: "green", Declined: "red", Converted: "green" };
 
@@ -115,7 +117,7 @@ export default function Quotations() {
 
       {loading ? <Loading /> : (
         <QuotationList
-          quotations={quotations} settings={settings} isOwner={admin?.role === "owner"}
+          quotations={quotations} settings={settings} isOwner={admin?.isOwner}
           onEdit={(q) => setEditor({ quotation: q })} onStatus={setStatus} onConvert={setConverting} onDelete={handleDelete}
         />
       )}
@@ -347,6 +349,8 @@ function QuotationEditor({ quotation, prefill, products, onClose, onSaved }) {
 }
 
 function ConvertModal({ quotation, onClose, onDone }) {
+  const { activeLocations } = useLocations();
+  const [locationId, setLocationId] = useState("");
   const [deposit, setDeposit] = useState("");
   const [method, setMethod] = useState("Cash");
   const [working, setWorking] = useState(false);
@@ -360,7 +364,7 @@ function ConvertModal({ quotation, onClose, onDone }) {
     setError("");
     setWorking(true);
     try {
-      setResult(await api.convertQuotation(quotation._id, { paymentMethod: method, deposit: deposit === "" ? 0 : Number(deposit) }));
+      setResult(await api.convertQuotation(quotation._id, { paymentMethod: method, location: locationId || defaultLocationId(activeLocations, "selling") || undefined, deposit: deposit === "" ? 0 : Number(deposit) }));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -397,6 +401,13 @@ function ConvertModal({ quotation, onClose, onDone }) {
             )}
             {stock.length === 0 && <p className="text-sm mb-3" style={{ color: C.red }}>None of the items are linked to stock products. Edit the quotation and pick products from the list.</p>}
             <div className="space-y-3">
+              {activeLocations.length > 1 && (
+                <Field label="Take the goods from">
+                  <select value={locationId || defaultLocationId(activeLocations, "selling")} onChange={(e) => setLocationId(e.target.value)} style={inputStyle}>
+                    {activeLocations.map((l) => <option key={l._id} value={l._id}>{l.name}</option>)}
+                  </select>
+                </Field>
+              )}
               <Field label="Deposit received now (₦, leave empty if none)"><input type="number" min="0" step="any" value={deposit} onChange={(e) => setDeposit(e.target.value)} style={inputStyle} /></Field>
               <Field label="How the deposit was paid">
                 <select value={method} onChange={(e) => setMethod(e.target.value)} style={inputStyle}>

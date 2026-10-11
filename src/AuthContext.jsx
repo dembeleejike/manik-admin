@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { api } from "./api";
+import { decorateAdmin } from "./utils/roles";
 
 const AuthContext = createContext(null);
 
@@ -12,7 +13,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let cancelled = false;
     api.me()
-      .then((data) => { if (!cancelled) setAdmin(data.admin); })
+      .then((data) => { if (!cancelled) setAdmin(decorateAdmin(data.admin)); })
       .catch(() => { if (!cancelled) setAdmin(null); })
       .finally(() => { if (!cancelled) setReady(true); });
     return () => { cancelled = true; };
@@ -23,12 +24,12 @@ export function AuthProvider({ children }) {
     // Confirm the browser actually kept the secure cookie before trusting the login.
     try {
       const me = await api.me();
-      setAdmin(me.admin);
+      setAdmin(decorateAdmin(me.admin));
     } catch {
       setAdmin(null);
       throw new Error("You signed in, but your browser blocked the secure sign-in cookie. Turn off \"block all cookies\" for this site, or ask the developer to check the setup guide.");
     }
-    return data.admin;
+    return decorateAdmin(data.admin);
   }
 
   async function logout() {

@@ -1,11 +1,14 @@
+import { saleNet } from "../utils/saleMath";
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Package, MessageSquare, AlertCircle, AlertTriangle, Wallet, TrendingUp, FileText } from "lucide-react";
+import { ArrowRightLeft, Package, MessageSquare, AlertCircle, AlertTriangle, Wallet, TrendingUp, FileText } from "lucide-react";
 import { api } from "../api";
 import { C } from "../tokens";
 import Layout from "../components/Layout";
 import { Card, Loading, ErrorBanner, ExplainerBox, Badge, formatMoney } from "../components/ui";
 import { useAuth } from "../AuthContext";
+import useLocations from "../components/useLocations";
+import { qtyAt, unassigned, defaultLocationId, whereText } from "../utils/stockPlaces";
 
 const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
 
@@ -14,7 +17,8 @@ export default function Overview() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const { admin } = useAuth();
-  const isOwner = admin?.role === "owner";
+  const { locations, activeLocations } = useLocations();
+  const isOwner = admin?.isOwner;
 
   useEffect(() => {
     async function load() {
@@ -44,12 +48,12 @@ export default function Overview() {
 
     const today = startOfToday();
     const soldToday = sales.filter((s) => new Date(s.date) >= today);
-    const soldTodayTotal = soldToday.reduce((n, s) => n + s.totalAmount, 0);
+    const soldTodayTotal = soldToday.reduce((n, s) => n + saleNet(s).total, 0);
 
     // Who still owes money, grouped by customer (phone if known, otherwise name).
     const owing = new Map();
     for (const s of sales) {
-      const owed = s.totalAmount - s.amountPaid;
+      const owed = saleNet(s).owed;
       if (owed <= 0.005) continue;
       const key = s.customerPhone || s.customerName || "Unknown customer";
       const row = owing.get(key) || { name: s.customerName || "Unknown customer", phone: s.customerPhone, owed: 0, oldest: new Date(s.date) };
@@ -67,8 +71,21 @@ export default function Overview() {
       .map((q) => ({ ...q, expiring: q.validUntil && new Date(q.validUntil) <= soon }))
       .sort((a, b) => new Date(a.validUntil || 8.64e15) - new Date(b.validUntil || 8.64e15));
 
-    return { newQuotes, lowStock, soldToday, soldTodayTotal, debtors, totalOwed, waitingQuotations };
-  }, [data]);
+    // Goods that are sitting in another place while the shop is out or low: time to bring some over.
+    const sellingId = defaultLocationId(activeLocations, "selling");
+    const needsMoving = sellingId
+      ? products
+          .map((p) => {
+            const here = qtyAt(p, sellingId) + unassigned(p);
+            return { p, here, elsewhere: (p.quantity ?? 0) - here };
+          })
+          .filter((x) => x.p.status !== "Made to order" && x.elsewhere > 0 && x.here <= (x.p.lowStockThreshold ?? 5))
+          .sort((a, b) => a.here - b.here)
+      : [];
+    const unitsOnHand = products.reduce((n, p) => n + (p.quantity || 0), 0);
+
+    return { newQuotes, lowStock, soldToday, soldTodayTotal, debtors, totalOwed, waitingQuotations, needsMoving, unitsOnHand, sellingName: activeLocations.find((l) => l._id === sellingId)?.name || "the shop" };
+  }, [data, activeLocations]);
 
   return (
     <Layout>
@@ -86,7 +103,7 @@ export default function Overview() {
             <StatCard icon={TrendingUp} label={`Sold today (${view.soldToday.length} sale${view.soldToday.length === 1 ? "" : "s"})`} value={formatMoney(view.soldTodayTotal)} />
             <StatCard icon={AlertTriangle} label="Products running low" value={view.lowStock.length} accent={view.lowStock.length > 0} />
             <StatCard icon={MessageSquare} label="New quote requests" value={view.newQuotes} accent={view.newQuotes > 0} />
-            <StatCard icon={Package} label={`Products · ${data.projects.length} projects`} value={data.products.length} />
+            <StatCard icon={Package} label={`units on hand · ${data.products.length} products`} value={view.unitsOnHand.toLocaleString()} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
@@ -100,6 +117,16 @@ export default function Overview() {
                 } />
               ))}
               {view.lowStock.length > 8 && <More to="/products" text={`and ${view.lowStock.length - 8} more…`} />}
+            </Panel>
+
+            <Panel
+              icon={ArrowRightLeft} title={`Bring to ${view.sellingName} — it's low there but stocked elsewhere`} linkTo="/stock" linkLabel="Move stock"
+              empty={`${view.sellingName} is stocked wherever there is stock elsewhere. 👍`} count={view.needsMoving.length}
+            >
+              {view.needsMoving.slice(0, 6).map(({ p, here }) => (
+                <Row key={p._id} left={p.name} sub={whereText(p, locations)} right={<Badge tone={here <= 0 ? "red" : "default"}>{here <= 0 ? `none at ${view.sellingName}` : `${here} at ${view.sellingName}`}</Badge>} />
+              ))}
+              {view.needsMoving.length > 6 && <More to="/stock" text={`and ${view.needsMoving.length - 6} more…`} />}
             </Panel>
 
             <Panel

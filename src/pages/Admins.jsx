@@ -3,6 +3,7 @@ import { UserPlus, Trash2, X } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../AuthContext";
 import { C } from "../tokens";
+import { roleLabel } from "../utils/roles";
 import Layout from "../components/Layout";
 import { PageHeader, Button, Card, Badge, Field, inputStyle, Loading, ErrorBanner, ExplainerBox } from "../components/ui";
 
@@ -26,8 +27,22 @@ export default function Admins() {
 
   useEffect(() => { load(); }, []);
 
+  async function handleRole(a) {
+    const next = a.role === "owner" ? "staff" : "owner";
+    if (!confirm(next === "owner" ? `Make ${a.name} an Admin? They will see profits, customers, expenses and settings.` : `Make ${a.name} Staff? They will lose access to money reports and settings.`)) return;
+    try {
+      const updated = await api.setAdminRole(a._id, next);
+      setAdmins((prev) => prev.map((x) => (x._id === a._id ? { ...x, role: updated.role } : x)));
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+
+  // Admins and the super admin can remove admins and staff — never the super admin or yourself.
+  const canRemove = (a) => a._id !== currentAdmin?.id && a.role !== "superadmin";
+
   async function handleDelete(id) {
-    if (!confirm("Remove this admin's access?")) return;
+    if (!confirm("Remove this person's access?")) return;
     try {
       await api.deleteAdmin(id);
       setAdmins((prev) => prev.filter((a) => a._id !== id));
@@ -43,7 +58,8 @@ export default function Admins() {
         action={<Button icon={UserPlus} onClick={() => setShowForm(true)}>Add admin</Button>}
       />
       <ExplainerBox>
-        <strong>Owner</strong> accounts can see everything — profits, customers, expenses, and can manage other logins. <strong>Staff</strong> accounts can handle day-to-day work (products, quotes, sales, purchases) but can't see money reports or change settings.
+        {currentAdmin?.isSuper && <><strong>Super admin</strong> is you — the one rank above everyone. Nobody else can see your account or your activity, and nobody can create another super admin. </>}
+        <strong>Admin</strong> accounts can see everything — profits, customers, expenses — and can add admins and staff." Admins can make others admin or staff and remove them, but can never touch the super admin." <strong>Staff</strong> accounts handle day-to-day work (products, quotes, sales, purchases, returns) but can't see money reports or change settings.
       </ExplainerBox>
       <ErrorBanner message={error} />
 
@@ -56,15 +72,22 @@ export default function Admins() {
               <div>
                 <div className="flex items-center gap-2">
                   <p className="font-medium" style={{ color: C.ink }}>{a.name}</p>
-                  <Badge tone={a.role === "owner" ? "green" : "default"}>{a.role}</Badge>
+                  <Badge tone={a.role === "owner" || a.role === "superadmin" ? "green" : "default"}>{roleLabel(a.role)}</Badge>
                 </div>
                 <p className="text-xs" style={{ color: "#6B6960" }}>{a.email || a.phone}</p>
               </div>
-              {a._id !== currentAdmin?.id && (
-                <button onClick={() => handleDelete(a._id)} className="text-xs flex items-center gap-1" style={{ color: C.red }}>
-                  <Trash2 size={12} /> Remove
-                </button>
-              )}
+              <div className="flex items-center gap-4">
+                {a.role !== "superadmin" && a._id !== currentAdmin?.id && (
+                  <button onClick={() => handleRole(a)} className="text-xs underline" style={{ color: C.ink }}>
+                    {a.role === "owner" ? "Make staff" : "Make admin"}
+                  </button>
+                )}
+                {canRemove(a) && (
+                  <button onClick={() => handleDelete(a._id)} className="text-xs flex items-center gap-1" style={{ color: C.red }}>
+                    <Trash2 size={12} /> Remove
+                  </button>
+                )}
+              </div>
               {a._id === currentAdmin?.id && (
                 <span className="text-xs" style={{ color: "#8A877D" }}>This is you</span>
               )}
@@ -129,7 +152,7 @@ function AddAdminModal({ onClose, onSaved }) {
                 Staff (day-to-day only)
               </button>
               <button type="button" onClick={() => setRole("owner")} className="text-xs uppercase px-3 py-2" style={{ border: `1px solid ${role === "owner" ? C.safety : "#C9C5BA"}`, color: role === "owner" ? C.safety : "#6B6960" }}>
-                Owner (full access)
+                Admin (full access)
               </button>
             </div>
           </Field>

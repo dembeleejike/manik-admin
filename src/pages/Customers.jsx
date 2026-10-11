@@ -1,3 +1,4 @@
+import { saleNet } from "../utils/saleMath";
 import React, { useEffect, useState } from "react";
 import { X, Phone, MapPin } from "lucide-react";
 import { api } from "../api";
@@ -190,10 +191,10 @@ function CustomerDetail({ customerId, onClose }) {
               {data.sales.map(s => (
                 <div key={s._id} className="p-3 text-sm" style={{ background: "white", border: "1px solid #C9C5BA" }}>
                   <div className="flex justify-between">
-                    <span style={{ color: C.ink }}>{s.productName} × {s.quantity}</span>
-                    <span style={{ color: C.ink }}>{formatMoney(s.totalAmount)}</span>
+                    <span style={{ color: C.ink }}>{s.productName} × {s.quantity}{(s.returnedQuantity || 0) > 0 ? ` (${s.returnedQuantity} returned)` : ""}</span>
+                    <span style={{ color: C.ink }}>{formatMoney(saleNet(s).total)}</span>
                   </div>
-                  <p className="text-xs mt-1" style={{ color: "#8A877D" }}>{new Date(s.date).toLocaleDateString()} · {s.paymentStatus}{s.totalAmount - s.amountPaid > 0.005 ? ` · owes ${formatMoney(s.totalAmount - s.amountPaid)}` : ""}</p>
+                  <p className="text-xs mt-1" style={{ color: "#8A877D" }}>{new Date(s.date).toLocaleDateString()} · {s.paymentStatus}{saleNet(s).owed > 0.005 ? ` · owes ${formatMoney(saleNet(s).owed)}` : ""}</p>
                 </div>
               ))}
             </div>
